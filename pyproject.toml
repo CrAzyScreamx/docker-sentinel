@@ -1,6 +1,10 @@
 [project]
 name = "docker-sentinel"
 version = "0.13.0"
+description = "AI-powered Docker image security inspector"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "CrAzyScreamx" }]
 requires-python = ">=3.11"
 dependencies = [
     "google-adk>=1.0.0",
@@ -14,6 +18,14 @@ dependencies = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
 ]
+
+[project.optional-dependencies]
+dev = ["nuitka>=2.0"]
+
+[project.urls]
+Homepage = "https://github.com/CrAzyScreamx/docker-sentinel"
+Repository = "https://github.com/CrAzyScreamx/docker-sentinel"
+Issues = "https://github.com/CrAzyScreamx/docker-sentinel/issues"
 
 [project.scripts]
 docker-sentinel = "docker_sentinel.cli:main"

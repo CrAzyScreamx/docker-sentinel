@@ -1,0 +1,80 @@
+name: Release Binaries
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux binary
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -e .[dev]
+      - run: |
+          python -m nuitka \
+            --onefile \
+            --output-dir=dist \
+            --assume-yes-for-downloads \
+            --include-package=docker_sentinel \
+            --include-package=litellm \
+            --include-package=google.adk \
+            --include-package=google.genai \
+            --include-package=anthropic \
+            --include-package=openai \
+            --output-filename=docker-sentinel-linux-amd64 \
+            docker_sentinel/cli.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-sentinel-linux-amd64
+          path: dist/docker-sentinel-linux-amd64
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows binary
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -e .[dev]
+      - run: |
+          python -m nuitka `
+            --onefile `
+            --output-dir=dist `
+            --assume-yes-for-downloads `
+            --include-package=docker_sentinel `
+            --include-package=litellm `
+            --include-package=google.adk `
+            --include-package=google.genai `
+            --include-package=anthropic `
+            --include-package=openai `
+            --output-filename=docker-sentinel-windows-amd64.exe `
+            docker_sentinel/cli.py
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-sentinel-windows-amd64
+          path: dist/docker-sentinel-windows-amd64.exe
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-22.04
+    needs: [build-linux, build-windows]
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: docker-sentinel-linux-amd64, path: release-assets/ }
+      - uses: actions/download-artifact@v4
+        with: { name: docker-sentinel-windows-amd64, path: release-assets/ }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/docker-sentinel-linux-amd64
+            release-assets/docker-sentinel-windows-amd64.exe
+          generate_release_notes: true
