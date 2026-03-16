@@ -9,9 +9,6 @@ image's Config and RootFS attributes.
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
-
-
 def _get_or_pull_image(
     client: docker.DockerClient,
     image_name: str,
@@ -69,7 +66,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def extract_image_metadata(image_name: str) -> str:
+def extract_image_metadata(image_name: str) -> dict:
     """
     Extract runtime metadata from a Docker image via the Docker SDK.
 
@@ -99,7 +96,7 @@ def extract_image_metadata(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         attrs = image.attrs
@@ -115,6 +112,6 @@ def extract_image_metadata(image_name: str) -> str:
             "size_bytes": attrs.get("Size", 0),
             "error": None,
         })
-        return to_toon(result)
+        return (result)
     except Exception as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))

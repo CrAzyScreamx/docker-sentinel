@@ -13,8 +13,6 @@ import docker.errors
 
 from docker_sentinel.config import settings
 
-from docker_sentinel.tools._toon import to_toon
-
 # Docker socket path mounted into the TruffleHog container so it can
 # reach the host daemon to inspect target image layers.
 _DOCKER_SOCKET_PATH = "/var/run/docker.sock"
@@ -82,7 +80,7 @@ def _decode_output(raw_output: bytes | str) -> str:
     return raw_output
 
 
-def run_trufflehog_scan(image_name: str) -> str:
+def run_trufflehog_scan(image_name: str) -> dict:
     """
     Run TruffleHog against a Docker image to detect embedded secrets.
     Mounts the Docker socket read-only; parses JSONL output into findings.
@@ -114,9 +112,9 @@ def run_trufflehog_scan(image_name: str) -> str:
         # Non-zero exit means secrets were found; output holds the JSONL.
         raw_output = exc.output or b""
     except docker.errors.DockerException as exc:
-        return to_toon({"secrets": [], "error": str(exc)})
+        return ({"secrets": [], "error": str(exc)})
 
-    return to_toon({
+    return ({
         "secrets": _parse_jsonl_output(_decode_output(raw_output)),
         "error": None,
     })

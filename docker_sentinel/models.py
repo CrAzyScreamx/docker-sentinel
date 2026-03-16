@@ -48,7 +48,6 @@ class ImageProfile(BaseModel):
     os: str
     created: str
     size_bytes: int
-    ai_description: str
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +150,27 @@ class PersistenceFinding(BaseModel):
     evidence: str
 
 
+class HistoryFinding(BaseModel):
+    """A suspicious pattern detected in an image build-layer command."""
+
+    model_config = _STRICT
+
+    layer_index: int
+    command_snippet: str    # first 200 chars of CreatedBy
+    pattern_matched: str    # e.g. "curl pipe-to-shell"
+
+
+class CapabilityFinding(BaseModel):
+    """A privilege or capability issue detected in the image configuration."""
+
+    model_config = _STRICT
+
+    finding_type: str       # "runs_as_root" | "privileged_port"
+                            # | "privileged_label" | "setcap_in_script"
+    evidence: str
+    detail: str
+
+
 # ---------------------------------------------------------------------------
 # Agent 2 output
 # ---------------------------------------------------------------------------
@@ -172,7 +192,8 @@ class StaticFindings(BaseModel):
     manifest_findings: list[ManifestFinding]
     layer_findings: list[LayerFinding]
     persistence_findings: list[PersistenceFinding]
-    synthesis: str
+    history_findings: list[HistoryFinding]
+    capability_findings: list[CapabilityFinding]
 
 
 # ---------------------------------------------------------------------------
@@ -200,13 +221,64 @@ class DynamicFindings(BaseModel):
 
     container_id: str
     checks: list[ProbeResult]
-    synthesis: str
 
 
 # ---------------------------------------------------------------------------
-# Agent 4 sub-types and output
+# M13 agent output types
 # ---------------------------------------------------------------------------
 
+class URLVerdict(BaseModel):
+    """Classification of a single URL extracted from the image."""
+
+    model_config = _STRICT
+
+    url: str
+    verdict: str            # "Safe" | "Not Safe"
+    reason: str
+
+
+class URLValidationReport(BaseModel):
+    """Aggregated URL verdicts produced by the URL Validator agent."""
+
+    model_config = _STRICT
+
+    verdicts: list[URLVerdict]
+
+
+class ScoredFinding(BaseModel):
+    """A single finding with an LLM-assigned risk score."""
+
+    model_config = _STRICT
+
+    source: str             # e.g. "script_analyzer", "trufflehog"
+    description: str
+    score: int              # 1–10
+    rationale: str
+
+
+class ScoringReport(BaseModel):
+    """All scored findings produced by the Scorer agent."""
+
+    model_config = _STRICT
+
+    scored_findings: list[ScoredFinding]
+    adjustment_note: str | None = None
+
+
+class RaterReport(BaseModel):
+    """Final rating and plain-English summary produced by the Rater agent."""
+
+    model_config = _STRICT
+
+    final_rating: str       # "INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+    summary: str            # one plain-English sentence
+
+
+# ---------------------------------------------------------------------------
+# Agent 4 sub-types and output  (DEPRECATED — superseded by M13 pipeline)
+# ---------------------------------------------------------------------------
+
+# DEPRECATED
 class Recommendation(BaseModel):
     """A single prioritised remediation recommendation."""
 
@@ -217,6 +289,7 @@ class Recommendation(BaseModel):
     detail: str
 
 
+# DEPRECATED
 class SynthesisReport(BaseModel):
     """
     Final risk assessment synthesised from all three prior agent outputs.
@@ -235,14 +308,15 @@ class SynthesisReport(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Final assembled report (built by runner.py)
+# Final assembled report v2 (built by runner.py)
 # ---------------------------------------------------------------------------
 
 class FinalReport(BaseModel):
     """
-    Top-level report assembled by runner.py from all four agent outputs.
+    Top-level report assembled by runner.py from the M13 pipeline.
 
     Written to disk as JSON and rendered to the terminal by report.py.
+    Schema version 2.0.0 — replaces the old static/dynamic/synthesis layout.
     """
 
     model_config = _STRICT
@@ -251,6 +325,7 @@ class FinalReport(BaseModel):
     generated_at: str
     image_name: str
     profile: ImageProfile
-    static: StaticFindings
-    dynamic: DynamicFindings
-    synthesis: SynthesisReport
+    url_verdicts: list[URLVerdict]
+    scored_findings: list[ScoredFinding]
+    final_rating: str
+    summary: str

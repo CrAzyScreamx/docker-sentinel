@@ -14,8 +14,6 @@ import docker
 import docker.errors
 import docker.models.containers
 
-from docker_sentinel.tools._toon import to_toon
-
 
 # ---------------------------------------------------------------------------
 # Isolation configuration
@@ -53,6 +51,24 @@ _PROBES: list[dict] = [
         "name": "crontab",
         "command": ["sh", "-c", "cat /etc/crontab 2>/dev/null"],
     },
+    {
+        "name": "listening_services",
+        "command": [
+            "sh", "-c",
+            "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null",
+        ],
+    },
+    {
+        "name": "sudoers",
+        "command": ["sh", "-c", "cat /etc/sudoers 2>/dev/null"],
+    },
+    {
+        "name": "active_services",
+        "command": [
+            "sh", "-c",
+            "systemctl list-units --type=service --state=active 2>/dev/null",
+        ],
+    },
 ]
 
 
@@ -79,6 +95,18 @@ _KNOWN_SUID_PATHS = frozenset({
     "/usr/bin/pkexec",       "/usr/lib/openssh/ssh-keysign",
     "/usr/bin/ssh-agent",    "/sbin/unix_chkpwd",
     "/usr/sbin/unix_chkpwd",
+})
+
+# Ports expected to be in a listening state in standard images. Any
+# port bound to all interfaces (0.0.0.0 or :::) outside this set is flagged.
+_KNOWN_SAFE_PORTS = frozenset({22, 80, 443, 3306, 5432, 6379, 27017})
+
+# Systemd service units considered normal in a standard Linux container.
+# Any active unit not in this set is flagged as potentially unexpected.
+_KNOWN_SAFE_SERVICES = frozenset({
+    "systemd-journald", "systemd-udevd", "dbus", "sshd", "cron",
+    "rsyslog", "docker", "containerd", "systemd-logind",
+    "systemd-networkd", "systemd-resolved",
 })
 
 # Key name patterns that suggest an environment variable holds a secret
@@ -251,13 +279,79 @@ def _flag_crontab_anomalies(raw_output: str) -> list[str]:
     return anomalies
 
 
+def _flag_listening_service_anomalies(raw_output: str) -> list[str]:
+    """
+    Flag ports bound to all interfaces that are not in the known-safe set.
+
+    Parses the Local Address column from ss/netstat output. Only addresses
+    starting with '0.0.0.0:' or ':::' are considered externally reachable.
+    Ports in _KNOWN_SAFE_PORTS are excluded; everything else is flagged.
+    """
+    anomalies = []
+    for line in raw_output.strip().splitlines()[1:]:
+        for part in line.split():
+            if not (part.startswith("0.0.0.0:") or part.startswith(":::")):
+                continue
+            port_str = part.rsplit(":", 1)[-1]
+            try:
+                port = int(port_str)
+            except ValueError:
+                continue
+            if port not in _KNOWN_SAFE_PORTS:
+                anomalies.append(f"unexpected listening port: {part}")
+    return anomalies
+
+
+def _flag_sudoers_anomalies(raw_output: str) -> list[str]:
+    """
+    Flag sudoers entries that grant passwordless privilege escalation.
+
+    Comment lines and blank lines are skipped. Any active rule containing
+    NOPASSWD is flagged — it allows processes to escalate to root without
+    authentication, which is unsafe in a container context.
+    """
+    anomalies = []
+    for line in raw_output.strip().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "NOPASSWD" in stripped:
+            anomalies.append(f"sudoers NOPASSWD entry: {stripped}")
+    return anomalies
+
+
+def _flag_active_service_anomalies(raw_output: str) -> list[str]:
+    """
+    Flag systemd service units not present in the known-safe baseline.
+
+    Parses unit names ending in '.service' from 'systemctl list-units'
+    output. Units outside _KNOWN_SAFE_SERVICES are unexpected for a
+    minimal container and may indicate a persistent backdoor or sidecar.
+    """
+    anomalies = []
+    for line in raw_output.strip().splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        unit = parts[0]
+        if not unit.endswith(".service"):
+            continue
+        unit_name = unit[: -len(".service")]
+        if unit_name not in _KNOWN_SAFE_SERVICES:
+            anomalies.append(f"unexpected active service: {unit}")
+    return anomalies
+
+
 # Dispatch table: probe name → anomaly checker function.
 # Defined after all checker functions so direct references are valid.
 _ANOMALY_CHECKERS = {
-    "running_processes":    _flag_process_anomalies,
-    "suid_files":           _flag_suid_anomalies,
+    "running_processes":     _flag_process_anomalies,
+    "suid_files":            _flag_suid_anomalies,
     "environment_variables": _flag_env_anomalies,
-    "crontab":              _flag_crontab_anomalies,
+    "crontab":               _flag_crontab_anomalies,
+    "listening_services":    _flag_listening_service_anomalies,
+    "sudoers":               _flag_sudoers_anomalies,
+    "active_services":       _flag_active_service_anomalies,
 }
 
 
@@ -325,11 +419,14 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def run_dynamic_analysis(image_name: str) -> str:
+def run_dynamic_analysis(image_name: str) -> dict:
     """
-    Run four runtime probes (ps aux, SUID find, env, crontab) inside a
-    fully isolated container (no network, all capabilities dropped, read-only
-    filesystem, 256 MB limit). The container is always cleaned up after.
+    Run seven runtime probes inside a fully isolated container.
+
+    Probes: running processes, SUID files, environment variables, crontab,
+    listening services, sudoers, and active systemd services. The container
+    runs with no network, all capabilities dropped, a read-only filesystem,
+    and a 256 MB memory limit. It is always cleaned up after analysis.
 
     Args:
         image_name: Docker image reference, e.g. "nginx:latest".
@@ -342,7 +439,7 @@ def run_dynamic_analysis(image_name: str) -> str:
         client = docker.from_env()
         _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     container = None
     checks: list[dict] = []
@@ -351,12 +448,12 @@ def run_dynamic_analysis(image_name: str) -> str:
         container = _start_isolated_container(client, image_name)
         checks = _execute_all_probes(container)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
     finally:
         if container is not None:
             _stop_and_remove_container(container)
 
-    return to_toon({
+    return ({
         "container_id": container.id,
         "checks": checks,
         "error": None,

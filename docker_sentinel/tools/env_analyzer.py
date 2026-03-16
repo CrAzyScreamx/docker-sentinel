@@ -12,8 +12,6 @@ import re
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
-
 
 # Key name substrings that suggest the variable holds a credential.
 # Matched case-insensitively against the full key name.
@@ -171,7 +169,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def analyze_env_vars(image_name: str) -> str:
+def analyze_env_vars(image_name: str) -> dict:
     """
     Flag environment variables whose names suggest credentials (PASSWORD,
     SECRET, TOKEN, API_KEY, etc.) or whose values resemble known secret
@@ -188,13 +186,13 @@ def analyze_env_vars(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         config = (image.attrs or {}).get("Config") or {}
         env_strings = config.get("Env") or []
     except Exception as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     findings = []
     for env_string in env_strings:
@@ -203,7 +201,7 @@ def analyze_env_vars(image_name: str) -> str:
         if finding is not None:
             findings.append(finding)
 
-    return to_toon({
+    return ({
         "env_findings": findings,
         "error": None,
     })

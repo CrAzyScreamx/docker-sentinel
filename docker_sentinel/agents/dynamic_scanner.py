@@ -1,3 +1,4 @@
+# RETIRED — superseded by M13 pipeline. Not used in production.
 """
 agents/dynamic_scanner.py — Dynamic Scanner agent (Agent 3).
 

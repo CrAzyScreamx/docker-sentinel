@@ -15,8 +15,6 @@ import tarfile
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
-
 
 # Exact file paths that map directly to a persistence type.
 _PERSISTENCE_EXACT_PATHS: dict[str, str] = {
@@ -250,7 +248,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def analyze_persistence(image_name: str) -> str:
+def analyze_persistence(image_name: str) -> dict:
     """
     Detect persistence mechanism files across all image layers: cron jobs,
     init scripts, systemd units, LD_PRELOAD hooks, shell profile backdoors,
@@ -267,16 +265,16 @@ def analyze_persistence(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         image_bytes = _reassemble_image_bytes(image)
         with tarfile.open(fileobj=image_bytes) as outer_tar:
             findings = _collect_persistence_findings(outer_tar)
     except (tarfile.TarError, OSError) as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
-    return to_toon({
+    return ({
         "persistence_findings": _cap_persistence_findings(findings),
         "error": None,
     })

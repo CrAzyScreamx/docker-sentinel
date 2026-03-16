@@ -34,11 +34,19 @@ from docker_sentinel.runner import run_pipeline
     default=False,
     help="Skip Rich terminal output; write the JSON report file only.",
 )
+@click.option(
+    "--detailed",
+    "detailed",
+    is_flag=True,
+    default=False,
+    help="Show score rationale for each finding.",
+)
 def main(
     image_name: str,
     output_dir: str,
     model: str | None,
     json_only: bool,
+    detailed: bool,
 ) -> None:
     """Inspect a Docker IMAGE_NAME for security issues."""
     load_dotenv()
@@ -46,4 +54,9 @@ def main(
     report = run_pipeline(image_name, model=model)
 
     from docker_sentinel.report import generate_report
-    generate_report(report, output_dir=output_dir, json_only=json_only)
+    generate_report(
+        report,
+        output_dir=output_dir,
+        json_only=json_only,
+        detailed=detailed,
+    )

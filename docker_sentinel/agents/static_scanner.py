@@ -1,3 +1,4 @@
+# RETIRED — superseded by M13 pipeline. Not used in production.
 """
 agents/static_scanner.py — Static Scanner agent (Agent 2).
 

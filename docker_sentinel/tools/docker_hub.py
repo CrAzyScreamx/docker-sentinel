@@ -13,8 +13,6 @@ import requests
 
 from docker_sentinel.config import settings
 
-from docker_sentinel.tools._toon import to_toon
-
 # Registry hostnames that resolve to Docker Hub.
 _DOCKER_HUB_REGISTRIES = {
     "",
@@ -126,7 +124,7 @@ def _build_error_result(
     }
 
 
-def check_docker_hub_status(image_name: str) -> str:
+def check_docker_hub_status(image_name: str) -> dict:
     """
     Query Docker Hub for the trust status and metadata of an image.
 
@@ -156,14 +154,14 @@ def check_docker_hub_status(image_name: str) -> str:
     # Non-Hub registries have no Docker Hub metadata — return immediately
     # with a correct URL for the actual registry rather than a bogus Hub URL.
     if not _is_docker_hub(registry):
-        return to_toon({
+        return {
             "is_official": False,
             "is_verified_publisher": False,
             "publisher": namespace,
             "repository_url": _build_image_url(registry, namespace, repo),
             "pull_count": 0,
             "error": f"Image is hosted on {registry}, not Docker Hub.",
-        })
+        }
 
     api_url = f"{settings.docker_hub_api_base}/{namespace}/{repo}/"
 
@@ -175,9 +173,9 @@ def check_docker_hub_status(image_name: str) -> str:
         error_message = (
             f"HTTP {exc.response.status_code}: {exc.response.reason}"
         )
-        return to_toon(_build_error_result(registry, namespace, repo, error_message))
+        return _build_error_result(registry, namespace, repo, error_message)
     except requests.exceptions.RequestException as exc:
-        return to_toon(_build_error_result(registry, namespace, repo, str(exc)))
+        return _build_error_result(registry, namespace, repo, str(exc))
 
     # Docker Official Images always live in the 'library' namespace —
     # more reliable than the 'is_official' field in the API response.
@@ -195,11 +193,11 @@ def check_docker_hub_status(image_name: str) -> str:
     badge = _fetch_namespace_badge(namespace)
     is_verified_publisher = badge == "verified_publisher"
 
-    return to_toon({
+    return {
         "is_official": is_official,
         "is_verified_publisher": is_verified_publisher,
         "publisher": publisher,
         "repository_url": _build_image_url(registry, namespace, repo),
         "pull_count": data.get("pull_count", 0),
         "error": None,
-    })
+    }

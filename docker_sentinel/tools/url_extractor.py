@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
+from docker_sentinel.tools.layer_analyzer import _get_layer_fileobjs
 
 
 # Byte-level patterns applied directly to file content.
@@ -191,14 +191,7 @@ def _extract_urls_from_layers(
     seen: set[tuple[str, str]] = set()
     results: list[tuple[str, str]] = []
 
-    for member in outer_tar.getmembers():
-        if not member.name.endswith("/layer.tar"):
-            continue
-
-        layer_fileobj = outer_tar.extractfile(member)
-        if layer_fileobj is None:
-            continue
-
+    for layer_fileobj in _get_layer_fileobjs(outer_tar):
         try:
             with tarfile.open(fileobj=layer_fileobj) as inner_tar:
                 for entry in inner_tar.getmembers():
@@ -345,7 +338,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def extract_urls(image_name: str) -> str:
+def extract_urls(image_name: str) -> dict:
     """
     Extract and flag suspicious HTTP/HTTPS URLs and bare IPs from image
     layers, env vars, and labels. Flags non-standard ports, raw IPs,
@@ -362,14 +355,14 @@ def extract_urls(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         image_bytes = _reassemble_image_bytes(image)
         with tarfile.open(fileobj=image_bytes) as outer_tar:
             layer_entries = _extract_urls_from_layers(outer_tar)
     except (tarfile.TarError, OSError) as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     env_entries = _extract_urls_from_env_vars(image)
     label_entries = _extract_urls_from_labels(image)
@@ -377,7 +370,7 @@ def extract_urls(image_name: str) -> str:
     all_entries = layer_entries + env_entries + label_entries
     findings = _build_findings(all_entries)
 
-    return to_toon({
+    return ({
         "url_findings": findings,
         "error": None,
     })

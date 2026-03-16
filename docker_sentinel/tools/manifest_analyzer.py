@@ -17,8 +17,6 @@ import tomllib
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
-
 
 # ---------------------------------------------------------------------------
 # Manifest identification
@@ -661,7 +659,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def analyze_manifests(image_name: str) -> str:
+def analyze_manifests(image_name: str) -> dict:
     """
     Detect risky packages in Python, Node, Ruby, and Debian manifests found
     across image layers: typosquats, known-malicious names, vulnerable pinned
@@ -678,14 +676,14 @@ def analyze_manifests(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         image_bytes = _reassemble_image_bytes(image)
         with tarfile.open(fileobj=image_bytes) as outer_tar:
             manifests = _collect_manifests(outer_tar)
     except (tarfile.TarError, OSError) as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     all_findings = []
     for normalised_path, (content, ecosystem) in manifests.items():
@@ -695,7 +693,7 @@ def analyze_manifests(image_name: str) -> str:
         )
         all_findings.extend(findings)
 
-    return to_toon({
+    return ({
         "manifest_findings": all_findings,
         "error": None,
     })

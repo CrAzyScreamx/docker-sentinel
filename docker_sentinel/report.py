@@ -60,6 +60,19 @@ def _risk_colour(rating: str) -> str:
     return _RISK_COLOURS.get(_normalise_rating(rating), "white")
 
 
+def _risk_colour_for_score(score: int) -> str:
+    """Return the Rich colour string for a numeric risk score (1–10)."""
+    if score >= 9:
+        return "bold red"
+    if score >= 7:
+        return "red"
+    if score >= 5:
+        return "yellow"
+    if score >= 3:
+        return "cyan"
+    return "green"
+
+
 def _write_json(report: FinalReport, output_dir: str) -> str:
     """
     Serialise the FinalReport to a timestamped JSON file.
@@ -81,7 +94,7 @@ def _write_json(report: FinalReport, output_dir: str) -> str:
 
 def _render_header(report: FinalReport) -> None:
     """Render the top-level panel with risk rating and executive summary."""
-    rating = _normalise_rating(report.synthesis.risk_rating)
+    rating = _normalise_rating(report.final_rating)
     colour = _risk_colour(rating)
 
     title = Text()
@@ -93,7 +106,7 @@ def _render_header(report: FinalReport) -> None:
     body.append(f"{rating}\n", style=colour)
     body.append("Scanned:      ", style="bold")
     body.append(f"{report.generated_at}\n\n", style="dim")
-    body.append(report.synthesis.executive_summary)
+    body.append(report.summary)
 
     _console.print(Panel(body, title=title, border_style=colour))
 
@@ -127,271 +140,98 @@ def _render_image_profile(report: FinalReport) -> None:
     table.add_row("Size", size_str)
     table.add_row("Created", profile.created)
     table.add_row("Repository", profile.repository_url)
-    table.add_row("Description", profile.ai_description)
 
     _console.print(table)
     _console.print()
 
 
-def _render_secrets(report: FinalReport) -> None:
-    """Render the Secrets section from TruffleHog findings."""
-    secrets = report.static.secrets
-    _console.print(Rule(f"[bold]Secrets ({len(secrets)})[/bold]"))
+def _render_url_verdicts(report: FinalReport, detailed: bool) -> None:
+    """
+    Render the URL Verdicts section.
 
-    if not secrets:
-        _console.print("  [dim]No secrets detected.[/dim]\n")
-        return
+    Shows a Rich table with URL, Verdict, and Reason columns. Verdict
+    cells are styled green for Safe and red for Not Safe. The detailed
+    flag is accepted for API consistency but all columns are always
+    shown. Prints a dim placeholder if no verdicts are present.
+    """
+    verdicts = report.url_verdicts
+    _console.print(Rule("[bold]URL Verdicts[/bold]"))
 
-    table = Table(show_header=True, header_style="bold red")
-    table.add_column("Detector")
-    table.add_column("File Path")
-    table.add_column("Redacted Snippet")
-
-    for secret in secrets:
-        table.add_row(
-            secret.detector,
-            secret.file_path,
-            secret.redacted_snippet,
-        )
-
-    _console.print(table)
-    _console.print()
-
-
-def _render_script_findings(report: FinalReport) -> None:
-    """Render the Script Findings section."""
-    findings = report.static.script_findings
-    _console.print(
-        Rule(f"[bold]Script Findings ({len(findings)})[/bold]")
-    )
-
-    if not findings:
-        _console.print(
-            "  [dim]No dangerous script patterns detected.[/dim]\n"
-        )
-        return
-
-    for finding in findings:
-        label = (
-            f"  [bold]{finding.file_path}[/bold] "
-            f"[[dim]{finding.script_type}[/dim]]"
-        )
-        _console.print(label)
-        for match in finding.matches:
-            _console.print(
-                f"    [yellow]L{match.line_number}[/yellow] "
-                f"[red]{match.pattern}[/red]: {match.line_content}"
-            )
-        _console.print()
-
-
-def _render_url_findings(report: FinalReport) -> None:
-    """Render the URL and IP Findings section."""
-    findings = report.static.url_findings
-    _console.print(
-        Rule(f"[bold]URL / IP Findings ({len(findings)})[/bold]")
-    )
-
-    if not findings:
-        _console.print(
-            "  [dim]No suspicious URLs or IPs detected.[/dim]\n"
-        )
+    if not verdicts:
+        _console.print("  [dim]No flagged URLs.[/dim]\n")
         return
 
     table = Table(show_header=True, header_style="bold yellow")
-    table.add_column("URL / IP")
-    table.add_column("Source")
-    table.add_column("Flags")
-
-    for finding in findings:
-        table.add_row(
-            finding.url,
-            finding.source_file,
-            ", ".join(finding.flags),
-        )
-
-    _console.print(table)
-    _console.print()
-
-
-def _render_env_findings(report: FinalReport) -> None:
-    """Render the Environment Variable Findings section."""
-    findings = report.static.env_findings
-    _console.print(
-        Rule(f"[bold]Env Var Findings ({len(findings)})[/bold]")
-    )
-
-    if not findings:
-        _console.print(
-            "  [dim]No credential-like env vars detected.[/dim]\n"
-        )
-        return
-
-    table = Table(show_header=True, header_style="bold yellow")
-    table.add_column("Key")
-    table.add_column("Redacted Value")
+    table.add_column("URL")
+    table.add_column("Verdict", width=10)
     table.add_column("Reason")
 
-    for finding in findings:
+    for verdict in verdicts:
+        verdict_style = "green" if verdict.verdict == "Safe" else "red"
         table.add_row(
-            finding.key, finding.value_redacted, finding.reason
+            verdict.url,
+            Text(verdict.verdict, style=verdict_style),
+            verdict.reason,
         )
 
     _console.print(table)
     _console.print()
 
 
-def _render_manifest_findings(report: FinalReport) -> None:
-    """Render the Manifest Findings section."""
-    findings = report.static.manifest_findings
-    _console.print(
-        Rule(f"[bold]Manifest Findings ({len(findings)})[/bold]")
+def _render_scored_findings(
+    report: FinalReport,
+    detailed: bool,
+) -> None:
+    """
+    Render the Scored Findings section, sorted by score descending.
+
+    Default mode shows Source, Score, and Description. When detailed
+    is True, an additional Rationale column is appended. Score cells
+    are colour-coded with _risk_colour_for_score.
+    """
+    findings = sorted(
+        report.scored_findings, key=lambda f: f.score, reverse=True
     )
+    _console.print(Rule("[bold]Scored Findings[/bold]"))
 
     if not findings:
-        _console.print("  [dim]No risky packages detected.[/dim]\n")
-        return
-
-    table = Table(show_header=True, header_style="bold yellow")
-    table.add_column("Manifest")
-    table.add_column("Package")
-    table.add_column("Version")
-    table.add_column("Reason")
-
-    for finding in findings:
-        table.add_row(
-            finding.manifest_file,
-            finding.package,
-            finding.version,
-            finding.reason,
-        )
-
-    _console.print(table)
-    _console.print()
-
-
-def _render_layer_findings(report: FinalReport) -> None:
-    """Render the Layer Findings section."""
-    findings = report.static.layer_findings
-    _console.print(
-        Rule(f"[bold]Layer Findings ({len(findings)})[/bold]")
-    )
-
-    if not findings:
-        _console.print(
-            "  [dim]No suspicious layer files detected.[/dim]\n"
-        )
-        return
-
-    table = Table(show_header=True, header_style="bold yellow")
-    table.add_column("File Path")
-    table.add_column("Layer")
-    table.add_column("Type")
-    table.add_column("Mode")
-
-    for finding in findings:
-        table.add_row(
-            finding.file_path,
-            finding.layer_id[:12],
-            finding.finding_type,
-            finding.mode_octal,
-        )
-
-    _console.print(table)
-    _console.print()
-
-
-def _render_persistence_findings(report: FinalReport) -> None:
-    """Render the Persistence Findings section."""
-    findings = report.static.persistence_findings
-    _console.print(
-        Rule(f"[bold]Persistence Findings ({len(findings)})[/bold]")
-    )
-
-    if not findings:
-        _console.print(
-            "  [dim]No persistence mechanisms detected.[/dim]\n"
-        )
-        return
-
-    table = Table(show_header=True, header_style="bold red")
-    table.add_column("File Path")
-    table.add_column("Layer", width=6)
-    table.add_column("Type")
-    table.add_column("Evidence")
-
-    for finding in findings:
-        table.add_row(
-            finding.file_path,
-            str(finding.layer_index),
-            finding.persistence_type,
-            finding.evidence,
-        )
-
-    _console.print(table)
-    _console.print()
-
-
-def _render_key_findings(report: FinalReport) -> None:
-    """Render the Key Findings section as a bullet list."""
-    findings = report.synthesis.key_findings
-    _console.print(Rule("[bold]Key Findings[/bold]"))
-
-    if not findings:
-        _console.print("  [dim]No key findings.[/dim]\n")
-        return
-
-    for finding in findings:
-        _console.print(f"  [bold yellow]*[/bold yellow] {finding}")
-    _console.print()
-
-
-def _render_recommendations(report: FinalReport) -> None:
-    """Render the Recommendations section as a colour-coded table."""
-    recommendations = report.synthesis.recommendations
-    _console.print(Rule("[bold]Recommendations[/bold]"))
-
-    if not recommendations:
-        _console.print("  [dim]No recommendations.[/dim]\n")
+        _console.print("  [dim]No findings scored.[/dim]\n")
         return
 
     table = Table(show_header=True, header_style="bold")
-    table.add_column("Priority", width=10)
-    table.add_column("Action")
-    table.add_column("Detail")
+    table.add_column("Source", width=20)
+    table.add_column("Score", width=6)
+    table.add_column("Description")
+    if detailed:
+        table.add_column("Rationale")
 
-    for rec in recommendations:
-        normalised = _normalise_rating(rec.priority)
-        colour = _risk_colour(rec.priority)
-        table.add_row(
-            Text(normalised, style=colour),
-            rec.action,
-            rec.detail,
+    for finding in findings:
+        score_text = Text(
+            str(finding.score),
+            style=_risk_colour_for_score(finding.score),
         )
+        row = [finding.source, score_text, finding.description]
+        if detailed:
+            row.append(finding.rationale)
+        table.add_row(*row)
 
     _console.print(table)
     _console.print()
 
 
-def _render_rich(report: FinalReport) -> None:
+def _render_rich(report: FinalReport, detailed: bool = False) -> None:
     """Orchestrate the full Rich terminal report rendering."""
     _render_header(report)
     _render_image_profile(report)
-    _render_secrets(report)
-    _render_script_findings(report)
-    _render_url_findings(report)
-    _render_env_findings(report)
-    _render_manifest_findings(report)
-    _render_layer_findings(report)
-    _render_persistence_findings(report)
-    _render_key_findings(report)
-    _render_recommendations(report)
+    _render_url_verdicts(report, detailed)
+    _render_scored_findings(report, detailed)
 
 
 def generate_report(
     report: FinalReport,
     output_dir: str = ".",
     json_only: bool = False,
+    detailed: bool = False,
 ) -> None:
     """
     Write the FinalReport to disk and render the Rich terminal report.
@@ -403,10 +243,11 @@ def generate_report(
         report: The assembled FinalReport from the pipeline runner.
         output_dir: Directory to write the JSON report file.
         json_only: When True, skip Rich terminal output.
+        detailed: When True, show score rationale for each finding.
     """
     json_path = _write_json(report, output_dir)
 
     if not json_only:
-        _render_rich(report)
+        _render_rich(report, detailed)
 
     _console.print(f"[dim]Report saved to: {json_path}[/dim]")

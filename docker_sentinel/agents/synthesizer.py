@@ -1,3 +1,4 @@
+# RETIRED — superseded by M13 pipeline. Not used in production.
 """
 agents/synthesizer.py — Synthesizer agent (Agent 4).
 

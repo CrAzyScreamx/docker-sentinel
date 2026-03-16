@@ -15,8 +15,6 @@ import tarfile
 import docker
 import docker.errors
 
-from docker_sentinel.tools._toon import to_toon
-
 
 # Known paths that are always treated as entrypoints regardless of
 # extension or shebang.
@@ -482,7 +480,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def analyze_scripts(image_name: str) -> str:
+def analyze_scripts(image_name: str) -> dict:
     """
     Discover and scan shell scripts across all image layers for dangerous
     patterns: reverse shells, pipe-to-shell downloads, cryptominer refs,
@@ -499,7 +497,7 @@ def analyze_scripts(image_name: str) -> str:
         client = docker.from_env()
         image = _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     try:
         entrypoint_paths = _collect_entrypoint_paths(image)
@@ -507,7 +505,7 @@ def analyze_scripts(image_name: str) -> str:
         with tarfile.open(fileobj=image_bytes) as outer_tar:
             scripts = _collect_scripts(outer_tar, entrypoint_paths)
     except (tarfile.TarError, OSError) as exc:
-        return to_toon(_build_error_result(str(exc)))
+        return (_build_error_result(str(exc)))
 
     findings = []
     for path, (content, script_type) in scripts.items():
@@ -519,7 +517,7 @@ def analyze_scripts(image_name: str) -> str:
                 "matches": matches,
             })
 
-    return to_toon({
+    return ({
         "script_findings": findings,
         "error": None,
     })
