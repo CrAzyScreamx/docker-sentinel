@@ -11,23 +11,21 @@ jobs:
   build-linux:
     name: Build Linux binary
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install -e .[dev]
       - run: |
-          python -m nuitka \
+          pyinstaller \
             --onefile \
-            --output-dir=dist \
-            --assume-yes-for-downloads \
-            --include-package=docker_sentinel \
-            --include-package=litellm \
-            --include-package=google.adk \
-            --include-package=google.genai \
-            --include-package=anthropic \
-            --include-package=openai \
-            --output-filename=docker-sentinel-linux-amd64 \
+            --name docker-sentinel-linux-amd64 \
+            --collect-all litellm \
+            --collect-all google.adk \
+            --collect-all google.genai \
+            --collect-all anthropic \
+            --collect-all openai \
             docker_sentinel/cli.py
       - uses: actions/upload-artifact@v4
         with:
@@ -38,23 +36,21 @@ jobs:
   build-windows:
     name: Build Windows binary
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install -e .[dev]
       - run: |
-          python -m nuitka `
+          pyinstaller `
             --onefile `
-            --output-dir=dist `
-            --assume-yes-for-downloads `
-            --include-package=docker_sentinel `
-            --include-package=litellm `
-            --include-package=google.adk `
-            --include-package=google.genai `
-            --include-package=anthropic `
-            --include-package=openai `
-            --output-filename=docker-sentinel-windows-amd64.exe `
+            --name docker-sentinel-windows-amd64 `
+            --collect-all litellm `
+            --collect-all google.adk `
+            --collect-all google.genai `
+            --collect-all anthropic `
+            --collect-all openai `
             docker_sentinel/cli.py
         shell: pwsh
       - uses: actions/upload-artifact@v4

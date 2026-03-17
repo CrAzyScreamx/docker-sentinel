@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["nuitka[onefile]>=2.0"]
+dev = ["pyinstaller>=6.0"]
 
 [project.urls]
 Homepage = "https://github.com/CrAzyScreamx/docker-sentinel"
