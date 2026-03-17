@@ -28,10 +28,53 @@ jobs:
             --collect-all google.genai \
             --collect-all anthropic \
             --collect-all openai \
+            \
             --exclude-module litellm.proxy \
+            --exclude-module litellm.integrations \
+            --exclude-module litellm.router \
+            --exclude-module litellm.batches \
+            --exclude-module litellm.fine_tuning \
+            --exclude-module google.adk.cli \
+            --exclude-module google.adk.web \
             --exclude-module google.adk.a2a \
             --exclude-module google.genai.tests \
+            --exclude-module openai.cli \
             --exclude-module openai.helpers \
+            \
+            --exclude-module boto3 \
+            --exclude-module botocore \
+            --exclude-module s3transfer \
+            --exclude-module aiobotocore \
+            --exclude-module azure \
+            --exclude-module google.cloud \
+            --exclude-module cohere \
+            --exclude-module replicate \
+            --exclude-module huggingface_hub \
+            \
+            --exclude-module torch \
+            --exclude-module tensorflow \
+            --exclude-module transformers \
+            --exclude-module jax \
+            --exclude-module pandas \
+            --exclude-module numpy \
+            --exclude-module scipy \
+            --exclude-module matplotlib \
+            --exclude-module sklearn \
+            --exclude-module PIL \
+            \
+            --exclude-module fastapi \
+            --exclude-module uvicorn \
+            --exclude-module starlette \
+            --exclude-module flask \
+            --exclude-module django \
+            --exclude-module aiohttp \
+            \
+            --exclude-module opentelemetry \
+            --exclude-module prometheus_client \
+            --exclude-module sqlalchemy \
+            --exclude-module redis \
+            --exclude-module celery \
+            --exclude-module langchain \
             docker_sentinel/cli.py
       - uses: actions/upload-artifact@v4
         with:
@@ -59,10 +102,53 @@ jobs:
             --collect-all google.genai `
             --collect-all anthropic `
             --collect-all openai `
+            `
             --exclude-module litellm.proxy `
+            --exclude-module litellm.integrations `
+            --exclude-module litellm.router `
+            --exclude-module litellm.batches `
+            --exclude-module litellm.fine_tuning `
+            --exclude-module google.adk.cli `
+            --exclude-module google.adk.web `
             --exclude-module google.adk.a2a `
             --exclude-module google.genai.tests `
+            --exclude-module openai.cli `
             --exclude-module openai.helpers `
+            `
+            --exclude-module boto3 `
+            --exclude-module botocore `
+            --exclude-module s3transfer `
+            --exclude-module aiobotocore `
+            --exclude-module azure `
+            --exclude-module google.cloud `
+            --exclude-module cohere `
+            --exclude-module replicate `
+            --exclude-module huggingface_hub `
+            `
+            --exclude-module torch `
+            --exclude-module tensorflow `
+            --exclude-module transformers `
+            --exclude-module jax `
+            --exclude-module pandas `
+            --exclude-module numpy `
+            --exclude-module scipy `
+            --exclude-module matplotlib `
+            --exclude-module sklearn `
+            --exclude-module PIL `
+            `
+            --exclude-module fastapi `
+            --exclude-module uvicorn `
+            --exclude-module starlette `
+            --exclude-module flask `
+            --exclude-module django `
+            --exclude-module aiohttp `
+            `
+            --exclude-module opentelemetry `
+            --exclude-module prometheus_client `
+            --exclude-module sqlalchemy `
+            --exclude-module redis `
+            --exclude-module celery `
+            --exclude-module langchain `
             docker_sentinel/cli.py
         shell: pwsh
       - uses: actions/upload-artifact@v4
