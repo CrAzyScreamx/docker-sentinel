@@ -26,6 +26,10 @@ jobs:
             --collect-all google.genai \
             --collect-all anthropic \
             --collect-all openai \
+            --exclude-module litellm.proxy \
+            --exclude-module google.adk.a2a \
+            --exclude-module google.genai.tests \
+            --exclude-module openai.helpers \
             docker_sentinel/cli.py
       - uses: actions/upload-artifact@v4
         with:
@@ -51,6 +55,10 @@ jobs:
             --collect-all google.genai `
             --collect-all anthropic `
             --collect-all openai `
+            --exclude-module litellm.proxy `
+            --exclude-module google.adk.a2a `
+            --exclude-module google.genai.tests `
+            --exclude-module openai.helpers `
             docker_sentinel/cli.py
         shell: pwsh
       - uses: actions/upload-artifact@v4

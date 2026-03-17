@@ -6,13 +6,15 @@ environment variables, invokes the pipeline runner, and delegates
 report rendering to report.py.
 """
 
+import sys
+
 import click
 from dotenv import load_dotenv
 
 from docker_sentinel.runner import run_pipeline
 
 
-@click.command()
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.argument("image_name")
 @click.option(
     "-o", "--output-dir",
@@ -51,7 +53,21 @@ def main(
     """Inspect a Docker IMAGE_NAME for security issues."""
     load_dotenv()
 
-    report = run_pipeline(image_name, model=model)
+    import os
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        click.echo(
+            "Error: ANTHROPIC_API_KEY is not set.\n"
+            "Set it in your environment or in a .env file next to the binary:\n"
+            "  ANTHROPIC_API_KEY=sk-ant-...",
+            err=True,
+        )
+        sys.exit(1)
+
+    try:
+        report = run_pipeline(image_name, model=model)
+    except Exception as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
 
     from docker_sentinel.report import generate_report
     generate_report(

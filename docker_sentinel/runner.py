@@ -94,7 +94,7 @@ async def _run_agent(
         agent=agent,
         session_service=session_service,
     )
-    async for _ in runner.run_async(
+    async for event in runner.run_async(
         user_id=_USER_ID,
         session_id=session.id,
         new_message=types.Content(
@@ -102,13 +102,22 @@ async def _run_agent(
             parts=[types.Part(text=prompt)],
         ),
     ):
-        pass
+        if hasattr(event, "error_message") and event.error_message:
+            raise RuntimeError(
+                f"Agent '{agent.name}' failed: {event.error_message}"
+            )
 
     final_session = await session_service.get_session(
         app_name=_APP_NAME,
         user_id=_USER_ID,
         session_id=session.id,
     )
+    if agent.output_key not in final_session.state:
+        raise RuntimeError(
+            f"Agent '{agent.name}' produced no output. "
+            "Check that ANTHROPIC_API_KEY is valid and the model string is correct "
+            f"(current: {agent.model})."
+        )
     raw = final_session.state[agent.output_key]
     return agent.output_schema.model_validate(raw)
 
