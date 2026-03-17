@@ -76,3 +76,7 @@ def main(
         json_only=json_only,
         detailed=detailed,
     )
+
+
+if __name__ == "__main__":
+    main()
