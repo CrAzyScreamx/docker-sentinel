@@ -10,9 +10,14 @@ entry point consumed by cli.py.
 import asyncio
 import json
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
+
+# Skip the remote model-cost-map fetch — avoids a noisy startup warning
+# when the GitHub raw URL is unreachable (e.g. offline or firewalled).
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
 import litellm
 
