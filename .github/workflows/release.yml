@@ -32,6 +32,11 @@ jobs:
             --collect-all docker \
             --collect-all certifi \
             --collect-all aiohttp \
+            --collect-all fastapi \
+            --collect-all starlette \
+            --collect-all uvicorn \
+            --collect-all opentelemetry \
+            --collect-all mcp \
             \
             --exclude-module litellm.proxy \
             --exclude-module litellm.integrations \
@@ -66,13 +71,9 @@ jobs:
             --exclude-module sklearn \
             --exclude-module PIL \
             \
-            --exclude-module fastapi \
-            --exclude-module uvicorn \
-            --exclude-module starlette \
             --exclude-module flask \
             --exclude-module django \
             \
-            --exclude-module opentelemetry \
             --exclude-module prometheus_client \
             --exclude-module sqlalchemy \
             --exclude-module redis \
@@ -99,6 +100,8 @@ jobs:
       - name: Build with PyInstaller (onedir)
         run: |
           pyinstaller `
+            --additional-hooks-dir hooks `
+            --runtime-hook hooks/rthook_pywin32.py `
             --name docker-sentinel `
             --collect-all litellm `
             --collect-all tiktoken `
@@ -111,6 +114,13 @@ jobs:
             --collect-all docker `
             --collect-all certifi `
             --collect-all aiohttp `
+            --collect-all fastapi `
+            --collect-all starlette `
+            --collect-all uvicorn `
+            --collect-all opentelemetry `
+            --collect-all mcp `
+            --hidden-import win32api `
+            --hidden-import pywintypes `
             `
             --exclude-module litellm.proxy `
             --exclude-module litellm.integrations `
@@ -145,13 +155,9 @@ jobs:
             --exclude-module sklearn `
             --exclude-module PIL `
             `
-            --exclude-module fastapi `
-            --exclude-module uvicorn `
-            --exclude-module starlette `
             --exclude-module flask `
             --exclude-module django `
             `
-            --exclude-module opentelemetry `
             --exclude-module prometheus_client `
             --exclude-module sqlalchemy `
             --exclude-module redis `
