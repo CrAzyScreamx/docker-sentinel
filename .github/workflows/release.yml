@@ -31,6 +31,7 @@ jobs:
             --collect-all pydantic \
             --collect-all docker \
             --collect-all certifi \
+            --collect-all aiohttp \
             \
             --exclude-module litellm.proxy \
             --exclude-module litellm.integrations \
@@ -70,7 +71,6 @@ jobs:
             --exclude-module starlette \
             --exclude-module flask \
             --exclude-module django \
-            --exclude-module aiohttp \
             \
             --exclude-module opentelemetry \
             --exclude-module prometheus_client \
@@ -110,6 +110,7 @@ jobs:
             --collect-all pydantic `
             --collect-all docker `
             --collect-all certifi `
+            --collect-all aiohttp `
             `
             --exclude-module litellm.proxy `
             --exclude-module litellm.integrations `
@@ -149,7 +150,6 @@ jobs:
             --exclude-module starlette `
             --exclude-module flask `
             --exclude-module django `
-            --exclude-module aiohttp `
             `
             --exclude-module opentelemetry `
             --exclude-module prometheus_client `
