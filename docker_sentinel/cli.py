@@ -22,14 +22,19 @@ from pathlib import Path
 def _setup_file_logger() -> Path:
     """
     Configure a file logger that writes full debug output next to the
-    executable (frozen) or in the project root (dev mode).
+    executable regardless of the current working directory.
+
+    Frozen (PyInstaller): next to docker-sentinel.exe / docker-sentinel binary.
+    Dev (source):         project root (two levels above cli.py).
 
     Returns the log file path so it can be reported to the user.
     """
     if getattr(sys, "frozen", False):
-        log_dir = Path(sys.executable).parent
+        # sys.executable is the actual binary path — works correctly even when
+        # launched via a Windows shortcut or a Linux symlink.
+        log_dir = Path(sys.executable).resolve().parent
     else:
-        log_dir = Path(__file__).parent.parent
+        log_dir = Path(__file__).resolve().parent.parent
 
     log_path = log_dir / "docker-sentinel-debug.log"
 
