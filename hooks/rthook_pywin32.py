@@ -17,17 +17,26 @@ import types
 if sys.platform == "win32":
 
     class _FalsyStub(types.ModuleType):
-        """A module that evaluates to False so `if not win32api:` guards work."""
+        """A module that evaluates to False so `if not win32api:` guards work.
+
+        Attribute access returns a callable child stub instead of raising so
+        that deep import chains (pkg_resources → appdirs → win32com →
+        pythoncom → pywintypes.__import_pywin32_system_module__) can complete
+        at module-import time without crashing.  The bool(module) == False
+        invariant is preserved on the stub object itself, which is all the
+        mcp.os.win32.utilities guards check.
+        """
 
         def __bool__(self):
             return False
 
+        def __call__(self, *args, **kwargs):
+            return None
+
         def __getattr__(self, name):
-            # Raise a clear error if anything ever tries to USE the stub.
-            raise AttributeError(
-                f"{self.__name__}.{name} is not available "
-                f"(pywin32 stub — MCP tools are not supported in this build)"
-            )
+            child = _FalsyStub(f"{self.__name__}.{name}")
+            object.__setattr__(self, name, child)  # cache to avoid recursion
+            return child
 
     for _mod in ("pywintypes", "win32api", "win32con", "win32job"):
         if _mod not in sys.modules:
