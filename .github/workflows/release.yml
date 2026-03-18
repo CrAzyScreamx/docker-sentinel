@@ -72,7 +72,6 @@ jobs:
         run: |
           pyinstaller `
             --additional-hooks-dir hooks `
-            --runtime-hook hooks/rthook_pywin32.py `
             --name docker-sentinel `
             --collect-all litellm `
             --collect-all tiktoken `
@@ -111,6 +110,8 @@ jobs:
             --copy-metadata google-adk `
             --copy-metadata google-genai `
             --copy-metadata pydantic `
+            --clean `
+            -y `
             docker_sentinel/cli.py
         shell: pwsh
       - name: Archive directory
