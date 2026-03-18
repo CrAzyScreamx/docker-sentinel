@@ -1,12 +1,10 @@
-# Local PyInstaller build for Windows — mirrors the release workflow exactly.
+# Local PyInstaller build for Windows — clean slate workflow.
 # Run from the project root: .\scripts\build-local.ps1
-# Then test immediately: .\dist\docker-sentinel\docker-sentinel.exe --help
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 pyinstaller `
   --additional-hooks-dir hooks `
-  --runtime-hook hooks/rthook_pywin32.py `
   --name docker-sentinel `
   --collect-all litellm `
   --collect-all tiktoken `
@@ -24,50 +22,29 @@ pyinstaller `
   --collect-all uvicorn `
   --collect-all opentelemetry `
   --collect-all mcp `
+  --collect-all pywin32 `
+  --collect-all docker_sentinel `
   --hidden-import win32api `
   --hidden-import pywintypes `
-  `
-  --exclude-module litellm.proxy `
-  --exclude-module litellm.integrations `
-  --exclude-module litellm.router `
-  --exclude-module litellm.batches `
-  --exclude-module litellm.fine_tuning `
-  --exclude-module google.adk.cli `
-  --exclude-module google.adk.web `
-  --exclude-module google.adk.a2a `
-  --exclude-module google.genai.tests `
-  --exclude-module openai.cli `
-  --exclude-module openai.helpers `
-  `
-  --exclude-module boto3 `
-  --exclude-module botocore `
-  --exclude-module s3transfer `
-  --exclude-module aiobotocore `
-  --exclude-module azure `
-  --exclude-module google.cloud `
-  --exclude-module cohere `
-  --exclude-module replicate `
-  --exclude-module huggingface_hub `
-  `
-  --exclude-module torch `
-  --exclude-module tensorflow `
-  --exclude-module transformers `
-  --exclude-module jax `
-  --exclude-module pandas `
-  --exclude-module numpy `
-  --exclude-module scipy `
-  --exclude-module matplotlib `
-  --exclude-module sklearn `
-  --exclude-module PIL `
-  `
-  --exclude-module flask `
-  --exclude-module django `
-  `
-  --exclude-module prometheus_client `
-  --exclude-module sqlalchemy `
-  --exclude-module redis `
-  --exclude-module celery `
-  --exclude-module langchain `
+  --hidden-import win32con `
+  --hidden-import win32file `
+  --hidden-import win32pipe `
+  --hidden-import win32event `
+  --hidden-import win32security `
+  --hidden-import ntsecuritycon `
+  --hidden-import google.adk.tools `
+  --hidden-import google.adk.tools.function_tool `
+  --hidden-import google.adk.tools.base_tool `
+  --hidden-import google.adk.models.lite_llm `
+  --hidden-import google.adk.flows `
+  --hidden-import google.adk.events `
+  --hidden-import google.genai.types `
+  --copy-metadata docker-sentinel `
+  --copy-metadata google-adk `
+  --copy-metadata google-genai `
+  --copy-metadata pydantic `
+  --clean `
+  -y `
   docker_sentinel/cli.py
 
 if ($LASTEXITCODE -eq 0) {

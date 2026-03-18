@@ -1,9 +1,11 @@
 """
 agents/image_profiler.py — Image Profiler agent (Agent 1).
 
-Calls Docker Hub and the Docker daemon to gather identity and runtime
-metadata for the target image. Stores the result as a validated
-ImageProfile in session state under the key 'image_profile'.
+Pure reasoning agent. Receives pre-fetched Docker Hub and daemon
+metadata from runner.py and structures it into a validated ImageProfile.
+Tool calls (check_docker_hub_status, extract_image_metadata) have been
+moved to direct Python calls in runner.py so that output_schema and
+tool-calling do not conflict inside the same agent.
 """
 
 from google.adk.agents import LlmAgent
@@ -11,19 +13,20 @@ from google.adk.models.lite_llm import LiteLlm
 
 from docker_sentinel.config import settings
 from docker_sentinel.models import ImageProfile
-from docker_sentinel.tools.docker_hub import check_docker_hub_status
-from docker_sentinel.tools.docker_meta import extract_image_metadata
 
 
 _INSTRUCTION = """
 You are the Image Profiler agent for docker-sentinel, a Docker image
 security inspector.
 
-Steps:
-1. Call `check_docker_hub_status` with image_name='{image_name}'.
-2. Call `extract_image_metadata` with image_name='{image_name}'.
-3. Populate the output schema fields from the tool results only.
-   Do not invent any details not present in the tool responses.
+You have been given two pre-fetched JSON blobs in session state:
+  - {hub_status}   : result of check_docker_hub_status
+  - {image_meta}   : result of extract_image_metadata
+
+Populate every field of the output schema strictly from those two
+blobs. Do not invent any detail that is not present in the data.
+If a field is not available in the data use an empty string, empty
+list, or zero as appropriate for the field type.
 """
 
 
@@ -33,7 +36,7 @@ def build_image_profiler_agent(model: str) -> LlmAgent:
         name="image_profiler",
         model=LiteLlm(model=model),
         instruction=_INSTRUCTION,
-        tools=[check_docker_hub_status, extract_image_metadata],
+        tools=[],
         output_schema=ImageProfile,
         output_key="image_profile",
     )

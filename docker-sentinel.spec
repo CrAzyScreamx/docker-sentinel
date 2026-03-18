@@ -1,9 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import copy_metadata
 
 datas = []
 binaries = []
-hiddenimports = ['win32api', 'pywintypes']
+hiddenimports = ['win32api', 'pywintypes', 'win32con', 'win32file', 'win32pipe', 'win32event', 'win32security', 'ntsecuritycon', 'google.adk.tools', 'google.adk.tools.function_tool', 'google.adk.tools.base_tool', 'google.adk.models.lite_llm', 'google.adk.flows', 'google.adk.events', 'google.genai.types']
+datas += copy_metadata('docker-sentinel')
+datas += copy_metadata('google-adk')
+datas += copy_metadata('google-genai')
+datas += copy_metadata('pydantic')
 tmp_ret = collect_all('litellm')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('tiktoken')
@@ -36,6 +41,10 @@ tmp_ret = collect_all('opentelemetry')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('mcp')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('pywin32')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('docker_sentinel')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
@@ -46,8 +55,8 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
-    runtime_hooks=['hooks/rthook_pywin32.py'],
-    excludes=['litellm.proxy', 'litellm.integrations', 'litellm.router', 'litellm.batches', 'litellm.fine_tuning', 'google.adk.cli', 'google.adk.web', 'google.adk.a2a', 'google.genai.tests', 'openai.cli', 'openai.helpers', 'boto3', 'botocore', 's3transfer', 'aiobotocore', 'azure', 'google.cloud', 'cohere', 'replicate', 'huggingface_hub', 'torch', 'tensorflow', 'transformers', 'jax', 'pandas', 'numpy', 'scipy', 'matplotlib', 'sklearn', 'PIL', 'flask', 'django', 'prometheus_client', 'sqlalchemy', 'redis', 'celery', 'langchain'],
+    runtime_hooks=[],
+    excludes=[],
     noarchive=False,
     optimize=0,
 )
