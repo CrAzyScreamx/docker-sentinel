@@ -30,6 +30,9 @@ Issues = "https://github.com/CrAzyScreamx/docker-sentinel/issues"
 [project.scripts]
 docker-sentinel = "docker_sentinel.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["docker_sentinel*"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
