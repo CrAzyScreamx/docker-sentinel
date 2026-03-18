@@ -2,22 +2,30 @@
 # Usage: irm https://raw.githubusercontent.com/CrAzyScreamx/docker-sentinel/main/scripts/install.ps1 | iex
 $ErrorActionPreference = 'Stop'
 
-$Repo        = "CrAzyScreamx/docker-sentinel"
-$BinaryName  = "docker-sentinel-windows-amd64.exe"
-$InstallDir  = "$env:LOCALAPPDATA\docker-sentinel"
-$InstallPath = "$InstallDir\docker-sentinel.exe"
+$Repo       = "CrAzyScreamx/docker-sentinel"
+$AssetName  = "docker-sentinel-windows-amd64.zip"
+$InstallDir = "$env:LOCALAPPDATA\docker-sentinel"
 
 Write-Host "Fetching latest release..."
 $Release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing
-$Asset   = $Release.assets | Where-Object { $_.name -eq $BinaryName }
-if (-not $Asset) { Write-Error "Asset $BinaryName not found in latest release"; exit 1 }
+$Asset   = $Release.assets | Where-Object { $_.name -eq $AssetName }
+if (-not $Asset) { Write-Error "Asset $AssetName not found in latest release"; exit 1 }
 
-if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
-$TmpPath = "$InstallDir\docker-sentinel-tmp.exe"
+$TmpZip = "$env:TEMP\docker-sentinel-tmp.zip"
+$TmpDir = "$env:TEMP\docker-sentinel-extract"
+
 Write-Host "Downloading: $($Asset.browser_download_url)"
-Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $TmpPath -UseBasicParsing
-if (Test-Path $InstallPath) { Remove-Item $InstallPath -Force }
-Move-Item $TmpPath $InstallPath
+Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $TmpZip -UseBasicParsing
+
+# Clean previous extraction temp dir
+if (Test-Path $TmpDir) { Remove-Item $TmpDir -Recurse -Force }
+Expand-Archive -Path $TmpZip -DestinationPath $TmpDir -Force
+Remove-Item $TmpZip -Force
+
+# Remove previous installation and move new one in
+if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force }
+Move-Item "$TmpDir\docker-sentinel" $InstallDir
+Remove-Item $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # Add to user PATH (no admin, persists via registry)
 $RegKey  = 'HKCU:\Environment'
@@ -38,5 +46,5 @@ if ($Current -notlike "*$InstallDir*") {
     Write-Host "Added $InstallDir to PATH. Restart terminal for full effect."
 }
 
-Write-Host "Installed: $InstallPath"
-& $InstallPath --help
+Write-Host "Installed: $InstallDir\docker-sentinel.exe"
+& "$InstallDir\docker-sentinel.exe" --help

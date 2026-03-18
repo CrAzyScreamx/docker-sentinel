@@ -5,9 +5,9 @@
 set -euo pipefail
 
 REPO="CrAzyScreamx/docker-sentinel"
-BINARY_NAME="docker-sentinel-linux-amd64"
-INSTALL_DIR="/usr/local/bin"
-INSTALL_PATH="${INSTALL_DIR}/docker-sentinel"
+ASSET_NAME="docker-sentinel-linux-amd64.tar.gz"
+INSTALL_DIR="/usr/local/lib/docker-sentinel"
+SYMLINK_PATH="/usr/local/bin/docker-sentinel"
 
 # Architecture guard
 ARCH=$(uname -m)
@@ -27,13 +27,14 @@ else
 fi
 
 DOWNLOAD_URL=$(echo "$RELEASE_JSON" \
-    | grep -o '"browser_download_url": *"[^"]*'"${BINARY_NAME}"'"' \
+    | grep -o '"browser_download_url": *"[^"]*'"${ASSET_NAME}"'"' \
     | grep -o 'https://[^"]*')
 
 [[ -z "$DOWNLOAD_URL" ]] && { echo "ERROR: Asset not found in release" >&2; exit 1; }
 
 TMP_FILE=$(mktemp)
-trap 'rm -f "$TMP_FILE"' EXIT
+TMP_DIR=$(mktemp -d)
+trap 'rm -f "$TMP_FILE"; rm -rf "$TMP_DIR"' EXIT
 
 echo "Downloading: $DOWNLOAD_URL"
 if command -v curl &>/dev/null; then
@@ -41,15 +42,34 @@ if command -v curl &>/dev/null; then
 else
     wget -qO "$TMP_FILE" "$DOWNLOAD_URL"
 fi
-chmod +x "$TMP_FILE"
 
-if [[ -w "$INSTALL_DIR" ]]; then
-    mv "$TMP_FILE" "$INSTALL_PATH"
-else
-    echo "Requires sudo to write to $INSTALL_DIR..."
-    sudo mv "$TMP_FILE" "$INSTALL_PATH"
-    sudo chmod +x "$INSTALL_PATH"
+echo "Extracting..."
+tar -xzf "$TMP_FILE" -C "$TMP_DIR"
+
+NEEDS_SUDO=false
+if [[ ! -w "$(dirname "$INSTALL_DIR")" ]]; then
+    NEEDS_SUDO=true
+    echo "Requires sudo to install to $INSTALL_DIR..."
 fi
 
-echo "Installed: $INSTALL_PATH"
+run_cmd() {
+    if $NEEDS_SUDO; then sudo "$@"; else "$@"; fi
+}
+
+# Remove previous installation if present
+if [[ -d "$INSTALL_DIR" ]]; then
+    run_cmd rm -rf "$INSTALL_DIR"
+fi
+if [[ -L "$SYMLINK_PATH" || -f "$SYMLINK_PATH" ]]; then
+    run_cmd rm -f "$SYMLINK_PATH"
+fi
+
+# Move extracted directory into place
+run_cmd mv "$TMP_DIR/docker-sentinel" "$INSTALL_DIR"
+run_cmd chmod +x "$INSTALL_DIR/docker-sentinel"
+
+# Symlink executable into PATH
+run_cmd ln -s "$INSTALL_DIR/docker-sentinel" "$SYMLINK_PATH"
+
+echo "Installed: $SYMLINK_PATH -> $INSTALL_DIR/docker-sentinel"
 docker-sentinel --help
