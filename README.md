@@ -10,13 +10,13 @@ docker-sentinel executes a 7-step pipeline for every image:
 
 | Step | What runs | Description |
 |------|-----------|-------------|
-| **1 — Image Profiler** | LLM agent | Collects Docker Hub metadata (official status, publisher, pull count) and daemon metadata (labels, env vars, ports, architecture, size), then structures it into a validated profile. |
-| **2 — Static Analysis** | 9 direct Python tools | Runs all nine static analyzers (see below) with zero LLM overhead. |
-| **3 — URL Validator** | LLM agent *(conditional)* | Classifies any flagged URLs as Safe or Not Safe. Skipped if no URLs were extracted. |
-| **4 — Dynamic Analysis** | Direct Python | Starts an isolated container (no network, all capabilities dropped, read-only FS, 256 MB RAM) and runs 7 runtime probes: processes, SUID files, environment variables, crontab, listening services, sudoers, and active systemd units. |
-| **5 — Filter** | Direct Python | Discards empty tool results so the Scorer only sees actionable findings. |
-| **6 — Scorer** | LLM agent | Assigns a 1–10 risk score to every finding using per-source rules, with a –2 trust discount for official or verified-publisher images. |
-| **7 — Rater** | LLM agent | Maps the highest score to a rating band and writes a one-sentence plain-English summary. |
+| **1 - Image Profiler** | LLM agent | Collects Docker Hub metadata (official status, publisher, pull count) and daemon metadata (labels, env vars, ports, architecture, size), then structures it into a validated profile. |
+| **2 - Static Analysis** | 9 direct Python tools | Runs all nine static analyzers (see below) with zero LLM overhead. |
+| **3 - URL Validator** | LLM agent *(conditional)* | Classifies any flagged URLs as Safe or Not Safe. Skipped if no URLs were extracted. |
+| **4 - Dynamic Analysis** | Direct Python | Starts an isolated container (no network, all capabilities dropped, read-only FS, 256 MB RAM) and runs 7 runtime probes: processes, SUID files, environment variables, crontab, listening services, sudoers, and active systemd units. |
+| **5 - Filter** | Direct Python | Discards empty tool results so the Scorer only sees actionable findings. |
+| **6 - Scorer** | LLM agent | Assigns a 1–10 risk score to every finding using per-source rules, with a –2 trust discount for official or verified-publisher images. |
+| **7 - Rater** | LLM agent | Maps the highest score to a rating band and writes a one-sentence plain-English summary. |
 
 ### Static analysis tools
 
