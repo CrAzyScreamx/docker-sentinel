@@ -15,6 +15,9 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+import docker
+import docker.errors
+
 # Skip the remote model-cost-map fetch — avoids a noisy startup warning
 # when the GitHub raw URL is unreachable (e.g. offline or firewalled).
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
@@ -32,7 +35,7 @@ from rich.console import Console
 from docker_sentinel.agents.image_profiler import build_image_profiler_agent
 from docker_sentinel.agents.rater import build_rater_agent
 from docker_sentinel.agents.scorer import build_scorer_agent
-from docker_sentinel.agents.url_validator import build_url_validator_agent
+from docker_sentinel.tools.url_validator import validate_urls
 from docker_sentinel.config import settings
 from docker_sentinel.models import FinalReport, RaterReport, ScoringReport
 from docker_sentinel.tools.capability_analyzer import analyze_capabilities
@@ -62,6 +65,56 @@ _USER_ID = "runner"
 
 _console = Console()
 _log = logging.getLogger("docker_sentinel.runner")
+
+def _pull_image_if_needed(image_name: str) -> None:
+    """
+    Ensure the Docker image is present in the local daemon cache.
+
+    Checks whether the image already exists locally. If it does, prints
+    a single "cached" notice. If it is absent, streams the pull event
+    log from the Docker daemon and prints one dim line per layer on
+    completion (Pull complete / Already exists) plus the final status
+    message, mirroring the output style of `docker pull`.
+
+    Failures are logged as warnings rather than raised so that the
+    pipeline can still attempt to proceed (individual tools perform
+    their own pull fallback).
+    """
+    try:
+        client = docker.from_env()
+    except docker.errors.DockerException as exc:
+        _log.warning("Docker unreachable during image pre-pull: %s", exc)
+        return
+
+    try:
+        client.images.get(image_name)
+        _console.print("[dim]  Image found in local cache.[/dim]")
+        return
+    except docker.errors.ImageNotFound:
+        pass
+
+    _console.print(
+        f"[dim]  {image_name!r} not found locally — pulling...[/dim]"
+    )
+    try:
+        seen_layers: set[str] = set()
+        for event in client.api.pull(image_name, stream=True, decode=True):
+            status = event.get("status", "")
+            layer_id = event.get("id", "")
+            if status in ("Pull complete", "Already exists") and layer_id:
+                if layer_id not in seen_layers:
+                    seen_layers.add(layer_id)
+                    _console.print(
+                        f"[dim]  {layer_id[:12]}: {status}[/dim]"
+                    )
+            elif status.startswith("Status:"):
+                _console.print(f"[dim]  {status}[/dim]")
+    except docker.errors.APIError as exc:
+        _log.warning("Image pull failed: %s", exc)
+        _console.print(
+            f"[yellow]  Warning: pull failed — {exc}[/yellow]"
+        )
+
 
 # Maps each raw_static tool key to its findings list key.
 # Used by _filter_empty_findings to skip tools with no results.
@@ -123,7 +176,7 @@ async def _run_agent(
     if agent.output_key not in final_session.state:
         raise RuntimeError(
             f"Agent '{agent.name}' produced no output. "
-            "Check that ANTHROPIC_API_KEY is valid and the model string is correct "
+            "Check that DOCKER_SENTINEL_AI_KEY is valid and the model string is correct "
             f"(current: {agent.model})."
         )
     raw = final_session.state[agent.output_key]
@@ -173,21 +226,31 @@ async def _run_pipeline_async(
     model: str,
 ) -> FinalReport:
     """
-    Execute the full 7-step M13 pipeline and return a FinalReport.
+    Execute the 7-step M13 pipeline and return a FinalReport.
 
-    Steps 1, 3, 6, and 7 invoke LLM agents via _run_agent. Steps 2
-    and 4 call static and dynamic tools directly in Python with zero
-    LLM overhead. Step 5 filters combined results before scoring.
+    Step 1  — Pull image into the local daemon cache (with progress).
+    Step 2  — Profile image via Hub API + LLM structuring.
+    Step 3  — Run all 9 static analysis tools, one at a time.
+    Step 4  — Validate flagged URLs (filter → Google DoH → Spamhaus ZEN).
+    Step 5  — Run all 7 dynamic probes inside an isolated container.
+    Step 6  — Score every non-empty finding with the Scorer agent.
+    Step 7  — Assign a final risk rating with the Rater agent.
     """
-    # Step 1 — Image Profiler (direct tool calls + LLM structuring)
-    _console.print("[cyan][1/7][/cyan] Profiling image...")
-    _log.info("Step 1: calling check_docker_hub_status(%s)", image_name)
+    # ------------------------------------------------------------------ #
+    # Step 1 — Pull image (show layer progress; fast no-op when cached)   #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][1/7][/cyan] Pulling image...")
+    _pull_image_if_needed(image_name)
+
+    # ------------------------------------------------------------------ #
+    # Step 2 — Image Profiler (Hub API + LLM structuring)                 #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][2/7][/cyan] Profiling image...")
+    _log.info("Step 2: check_docker_hub_status(%s)", image_name)
     hub_status = check_docker_hub_status(image_name)
-    _log.info("Step 1: hub_status=%s", hub_status)
-    _log.info("Step 1: calling extract_image_metadata(%s)", image_name)
+    _log.info("Step 2: extract_image_metadata(%s)", image_name)
     image_meta = extract_image_metadata(image_name)
-    _log.info("Step 1: image_meta=%s", image_meta)
-    _log.info("Step 1: running image_profiler agent with model=%s", model)
+    _log.info("Step 2: running image_profiler agent (model=%s)", model)
     profile = await _run_agent(
         build_image_profiler_agent(model),
         {
@@ -197,38 +260,59 @@ async def _run_pipeline_async(
         },
         "Populate the ImageProfile from the provided hub_status and image_meta data.",
     )
-    _log.info("Step 1: profile=%s", profile)
+    _log.info("Step 2: profile=%s", profile)
 
-    # Step 2 — Static Analysis (direct Python calls, zero LLM overhead)
-    _console.print("[cyan][2/7][/cyan] Running static analysis...")
-    _log.info("Step 2: starting static analysis")
-    _log.info("Step 2: run_trufflehog_scan …")
-    trufflehog_result = run_trufflehog_scan(image_name)
-    _log.info("Step 2: trufflehog=%s", trufflehog_result)
-    _log.info("Step 2: analyze_image_layers …")
-    layer_result = analyze_image_layers(image_name)
-    _log.info("Step 2: layer=%s", layer_result)
-    _log.info("Step 2: analyze_scripts …")
-    scripts_result = analyze_scripts(image_name)
-    _log.info("Step 2: scripts=%s", scripts_result)
-    _log.info("Step 2: extract_urls …")
-    urls_result = extract_urls(image_name)
-    _log.info("Step 2: urls=%s", urls_result)
-    _log.info("Step 2: analyze_env_vars …")
-    env_result = analyze_env_vars(image_name)
-    _log.info("Step 2: env=%s", env_result)
-    _log.info("Step 2: analyze_manifests …")
-    manifests_result = analyze_manifests(image_name)
-    _log.info("Step 2: manifests=%s", manifests_result)
-    _log.info("Step 2: analyze_persistence …")
-    persistence_result = analyze_persistence(image_name)
-    _log.info("Step 2: persistence=%s", persistence_result)
-    _log.info("Step 2: analyze_history …")
-    history_result = analyze_history(image_name)
-    _log.info("Step 2: history=%s", history_result)
-    _log.info("Step 2: analyze_capabilities …")
-    capabilities_result = analyze_capabilities(image_name)
-    _log.info("Step 2: capabilities=%s", capabilities_result)
+    # ------------------------------------------------------------------ #
+    # Step 3 — Static Analysis (9 tools run in parallel via thread pool)  #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][3/7][/cyan] Static analysis")
+
+    # Print all tool names before dispatching so the user sees what is
+    # about to run. The tools are independent and share no state, so
+    # they can safely execute concurrently in the default thread pool.
+    for _label in (
+        "secrets (trufflehog)",
+        "layer analysis",
+        "scripts",
+        "urls",
+        "env vars",
+        "manifests",
+        "persistence",
+        "history",
+        "capabilities",
+    ):
+        _console.print(f"[dim]  ► {_label}[/dim]")
+
+    _loop = asyncio.get_running_loop()
+    (
+        trufflehog_result,
+        layer_result,
+        scripts_result,
+        urls_result,
+        env_result,
+        manifests_result,
+        persistence_result,
+        history_result,
+        capabilities_result,
+    ) = await asyncio.gather(
+        _loop.run_in_executor(None, run_trufflehog_scan, image_name),
+        _loop.run_in_executor(None, analyze_image_layers, image_name),
+        _loop.run_in_executor(None, analyze_scripts, image_name),
+        _loop.run_in_executor(None, extract_urls, image_name),
+        _loop.run_in_executor(None, analyze_env_vars, image_name),
+        _loop.run_in_executor(None, analyze_manifests, image_name),
+        _loop.run_in_executor(None, analyze_persistence, image_name),
+        _loop.run_in_executor(None, analyze_history, image_name),
+        _loop.run_in_executor(None, analyze_capabilities, image_name),
+    )
+    _log.info(
+        "Step 3: complete — trufflehog=%s layer=%s scripts=%s urls=%s "
+        "env=%s manifests=%s persistence=%s history=%s capabilities=%s",
+        trufflehog_result, layer_result, scripts_result, urls_result,
+        env_result, manifests_result, persistence_result,
+        history_result, capabilities_result,
+    )
+
     raw_static = {
         "trufflehog":   trufflehog_result,
         "layer":        layer_result,
@@ -240,37 +324,47 @@ async def _run_pipeline_async(
         "history":      history_result,
         "capabilities": capabilities_result,
     }
-    _log.info("Step 2: complete")
 
-    # Step 3 — URL Validator (conditional — skipped if no flagged URLs)
-    _console.print("[cyan][3/7][/cyan] Validating URLs...")
+    # ------------------------------------------------------------------ #
+    # Step 4 — URL Validator (deterministic: filter → DoH → Spamhaus)    #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][4/7][/cyan] Validating URLs...")
     flagged_urls = raw_static["urls"].get("url_findings", [])
-    _log.info("Step 3: flagged_urls count=%d", len(flagged_urls))
+    _log.info("Step 4: flagged_urls count=%d", len(flagged_urls))
     if flagged_urls:
-        url_report = await _run_agent(
-            build_url_validator_agent(model),
-            {"url_findings": json.dumps(flagged_urls[:50])},
-            "Classify these URLs.",
+        # validate_urls performs blocking network I/O (Google DoH +
+        # Spamhaus DNSBL lookups), so it runs in the thread pool.
+        url_verdicts = await _loop.run_in_executor(
+            None, validate_urls, flagged_urls[:50]
         )
-        url_verdicts = [v.model_dump() for v in url_report.verdicts]
     else:
+        _console.print("[dim]  No flagged URLs — skipping.[/dim]")
         url_verdicts = []
-    _log.info("Step 3: url_verdicts=%s", url_verdicts)
+    _log.info("Step 4: url_verdicts=%s", url_verdicts)
 
-    # Step 4 — Dynamic Analysis (direct Python call)
-    _console.print("[cyan][4/7][/cyan] Running dynamic analysis...")
-    _log.info("Step 4: run_dynamic_analysis …")
-    dynamic_result = run_dynamic_analysis(image_name)
-    _log.info("Step 4: dynamic=%s", dynamic_result)
+    # ------------------------------------------------------------------ #
+    # Step 5 — Dynamic Analysis (7 probes inside an isolated container)   #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][5/7][/cyan] Dynamic analysis")
 
-    # Step 5 — Filter empty findings
-    _console.print("[cyan][5/7][/cyan] Filtering findings...")
-    filtered = _filter_empty_findings(
-        raw_static, dynamic_result, url_verdicts
-    )
-    _log.info("Step 5: filtered keys=%s", list(filtered.keys()))
+    def _on_probe(probe_name: str) -> None:
+        """Print the probe label in dim gray before each probe fires."""
+        label = probe_name.replace("_", " ")
+        _console.print(f"[dim]  ► {label}[/dim]")
 
-    # Step 6 — Scorer (LLM agent)
+    dynamic_result = run_dynamic_analysis(image_name, on_probe=_on_probe)
+    _log.info("Step 5: dynamic=%s", dynamic_result)
+
+    # ------------------------------------------------------------------ #
+    # Filter — build the flat findings dict passed to the Scorer           #
+    # (internal step; no user-visible output)                              #
+    # ------------------------------------------------------------------ #
+    filtered = _filter_empty_findings(raw_static, dynamic_result, url_verdicts)
+    _log.info("Filtered finding keys: %s", list(filtered.keys()))
+
+    # ------------------------------------------------------------------ #
+    # Step 6 — Scorer (LLM agent)                                         #
+    # ------------------------------------------------------------------ #
     _console.print("[cyan][6/7][/cyan] Scoring findings...")
     _log.info("Step 6: running scorer agent")
     scoring: ScoringReport = await _run_agent(
@@ -283,7 +377,9 @@ async def _run_pipeline_async(
     )
     _log.info("Step 6: scored_findings count=%d", len(scoring.scored_findings))
 
-    # Step 7 — Rater (LLM agent) + FinalReport assembly
+    # ------------------------------------------------------------------ #
+    # Step 7 — Rater (LLM agent) + FinalReport assembly                   #
+    # ------------------------------------------------------------------ #
     _console.print("[cyan][7/7][/cyan] Rating image...")
     _log.info("Step 7: running rater agent")
     rating: RaterReport = await _run_agent(
@@ -291,7 +387,11 @@ async def _run_pipeline_async(
         {"scoring_report": json.dumps(scoring.model_dump())},
         "Rate this image.",
     )
-    _log.info("Step 7: final_rating=%s  summary=%s", rating.final_rating, rating.summary)
+    _log.info(
+        "Step 7: final_rating=%s  summary=%s",
+        rating.final_rating,
+        rating.summary,
+    )
 
     _console.print("[green]Done.[/green]\n")
 
@@ -320,6 +420,11 @@ def run_pipeline(
     model string, applies the Windows ProactorEventLoop policy when
     needed, and delegates to the async implementation.
 
+    LiteLLM resolves Anthropic credentials from the standard
+    ANTHROPIC_API_KEY environment variable. We forward our custom-named
+    DOCKER_SENTINEL_AI_KEY to that variable here so that users only ever
+    need to set DOCKER_SENTINEL_AI_KEY.
+
     Args:
         image_name: Docker image reference to inspect.
         model: Optional LiteLLM model string override. Falls back to
@@ -328,6 +433,9 @@ def run_pipeline(
     Returns:
         A fully assembled FinalReport from the 7-step M13 pipeline.
     """
+    if settings.docker_sentinel_ai_key:
+        os.environ["ANTHROPIC_API_KEY"] = settings.docker_sentinel_ai_key
+
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(
             asyncio.WindowsProactorEventLoopPolicy()

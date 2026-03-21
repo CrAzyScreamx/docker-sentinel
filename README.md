@@ -47,7 +47,7 @@ docker-sentinel executes a 7-step pipeline for every image:
 ## Prerequisites
 
 - **Docker Engine** must be running locally — all image operations and the TruffleHog scanner use the Docker daemon.
-- **Anthropic API key** — set `ANTHROPIC_API_KEY` in your environment or in a `.env` file next to the binary.
+- **Anthropic API key** — set `DOCKER_SENTINEL_AI_KEY` in your environment or in a `.env` file next to the binary.
 
 ---
 
@@ -120,7 +120,7 @@ All settings can be provided as environment variables or in a `.env` file placed
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | *(required)* | Anthropic API key for the LLM agents |
+| `DOCKER_SENTINEL_AI_KEY` | *(required)* | Anthropic API key for the LLM agents |
 | `DOCKER_SENTINEL_MODEL` | `anthropic/claude-sonnet-4-6` | LiteLLM model string used by all four agents |
 ---
 

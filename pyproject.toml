@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
+    "dnspython>=2.6.0",
 ]
 
 [project.optional-dependencies]

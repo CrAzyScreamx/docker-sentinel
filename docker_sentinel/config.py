@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     )
 
     # Anthropic API key — required at runtime, not validated here.
-    anthropic_api_key: str = Field(default="")
+    docker_sentinel_ai_key: str = Field(default="")
 
     # Schema version stamped into every FinalReport.
     schema_version: str = Field(default="2.0.0")

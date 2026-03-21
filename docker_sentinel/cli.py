@@ -117,17 +117,17 @@ def main(
     load_dotenv()
     _log.debug("load_dotenv() completed")
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        _log.error("ANTHROPIC_API_KEY is not set")
+    if not os.environ.get("DOCKER_SENTINEL_AI_KEY"):
+        _log.error("DOCKER_SENTINEL_AI_KEY is not set")
         click.echo(
-            "Error: ANTHROPIC_API_KEY is not set.\n"
+            "Error: DOCKER_SENTINEL_AI_KEY is not set.\n"
             "Set it in your environment or in a .env file next to the binary:\n"
-            "  ANTHROPIC_API_KEY=sk-ant-...",
+            "  DOCKER_SENTINEL_AI_KEY=sk-ant-...",
             err=True,
         )
         sys.exit(1)
 
-    _log.debug("ANTHROPIC_API_KEY present (length=%d)", len(os.environ["ANTHROPIC_API_KEY"]))
+    _log.debug("DOCKER_SENTINEL_AI_KEY present (length=%d)", len(os.environ["DOCKER_SENTINEL_AI_KEY"]))
 
     try:
         _log.info("Calling run_pipeline …")

@@ -391,14 +391,22 @@ def _run_single_probe(
 
 def _execute_all_probes(
     container: docker.models.containers.Container,
+    on_probe=None,
 ) -> list[dict]:
     """
     Run every defined probe sequentially and return all results.
 
     Probes are intentionally run one at a time so that each captures a
     consistent snapshot without interference from concurrent commands.
+    If on_probe is provided it is called with the probe name just before
+    each probe executes, allowing the caller to display progress.
     """
-    return [_run_single_probe(container, probe) for probe in _PROBES]
+    results = []
+    for probe in _PROBES:
+        if on_probe is not None:
+            on_probe(probe["name"])
+        results.append(_run_single_probe(container, probe))
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +427,7 @@ def _build_error_result(error_message: str) -> dict:
     }
 
 
-def run_dynamic_analysis(image_name: str) -> dict:
+def run_dynamic_analysis(image_name: str, on_probe=None) -> dict:
     """
     Run seven runtime probes inside a fully isolated container.
 
@@ -430,6 +438,8 @@ def run_dynamic_analysis(image_name: str) -> dict:
 
     Args:
         image_name: Docker image reference, e.g. "nginx:latest".
+        on_probe: Optional callable(probe_name: str) invoked just before
+                  each probe fires, for progress display in the caller.
 
     Returns:
         dict with 'container_id', 'checks' (list of {probe, anomalies}),
@@ -439,22 +449,22 @@ def run_dynamic_analysis(image_name: str) -> dict:
         client = docker.from_env()
         _get_or_pull_image(client, image_name)
     except docker.errors.DockerException as exc:
-        return (_build_error_result(str(exc)))
+        return _build_error_result(str(exc))
 
     container = None
     checks: list[dict] = []
 
     try:
         container = _start_isolated_container(client, image_name)
-        checks = _execute_all_probes(container)
+        checks = _execute_all_probes(container, on_probe=on_probe)
     except docker.errors.DockerException as exc:
-        return (_build_error_result(str(exc)))
+        return _build_error_result(str(exc))
     finally:
         if container is not None:
             _stop_and_remove_container(container)
 
-    return ({
+    return {
         "container_id": container.id,
         "checks": checks,
         "error": None,
-    })
+    }
