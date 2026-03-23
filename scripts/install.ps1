@@ -48,3 +48,50 @@ if ($Current -notlike "*$InstallDir*") {
 
 Write-Host "Installed: $InstallDir\docker-sentinel.exe"
 & "$InstallDir\docker-sentinel.exe" --help
+
+# ---------------------------------------------------------------------------
+# Claude Code skills (optional)
+# ---------------------------------------------------------------------------
+
+function Get-ClaudeDir {
+    if ($env:CLAUDE_CONFIG_DIR) { return $env:CLAUDE_CONFIG_DIR }
+    return Join-Path $env:USERPROFILE ".claude"
+}
+
+$SkillsAnswer = Read-Host "`nInstall Claude Code skills? [y/N]"
+if ($SkillsAnswer -match "^[yY]") {
+    $ClaudeDir   = Get-ClaudeDir
+    $SkillsDir   = Join-Path $ClaudeDir "plugins\cache\local\docker-sentinel\1.0.0"
+    $PluginsJson = Join-Path $ClaudeDir "plugins\installed_plugins.json"
+    $SkillsZipUrl = "https://github.com/$Repo/releases/download/$($Release.tag_name)/docker-sentinel-skills.zip"
+    $SkillsTmp   = Join-Path $env:TEMP "docker-sentinel-skills.zip"
+
+    Write-Host "Downloading skills package..."
+    Invoke-WebRequest -Uri $SkillsZipUrl -OutFile $SkillsTmp -UseBasicParsing
+
+    if (-not (Test-Path $SkillsDir)) { New-Item -ItemType Directory -Path $SkillsDir -Force | Out-Null }
+    Expand-Archive -Path $SkillsTmp -DestinationPath $SkillsDir -Force
+    Remove-Item $SkillsTmp -Force
+
+    Write-Host "Registering plugin in installed_plugins.json..."
+    $Now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    if (Test-Path $PluginsJson) {
+        $Data = Get-Content $PluginsJson -Raw | ConvertFrom-Json
+    } else {
+        $Data = [PSCustomObject]@{ version = 2; plugins = [PSCustomObject]@{} }
+    }
+    $Entry = @([PSCustomObject]@{
+        scope = "user"; installPath = $SkillsDir; version = "1.0.0"
+        installedAt = $Now; lastUpdated = $Now; gitCommitSha = ""
+    })
+    if ($Data.plugins.PSObject.Properties["docker-sentinel@local"]) {
+        $Data.plugins."docker-sentinel@local" = $Entry
+    } else {
+        $Data.plugins | Add-Member -NotePropertyName "docker-sentinel@local" -NotePropertyValue $Entry
+    }
+    $Data | ConvertTo-Json -Depth 10 | Set-Content $PluginsJson -Encoding UTF8
+
+    Write-Host "Skills installed. Restart Claude Code to activate the docker-sentinel skill."
+} else {
+    Write-Host "Skipped Claude Code skills installation."
+}
