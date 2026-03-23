@@ -87,10 +87,9 @@ printf '\nInstall Claude Code skills? [y/N] '
 read -r _skills_answer
 case "$_skills_answer" in
     [yY]|[yY][eE][sS])
-        CLAUDE_DIR=$(find_claude_dir)
-        SKILLS_DIR="${CLAUDE_DIR}/plugins/cache/local/docker-sentinel/1.0.0"
-        PLUGINS_JSON="${CLAUDE_DIR}/plugins/installed_plugins.json"
-        SKILLS_ZIP_URL="https://github.com/${REPO}/releases/download/$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')/docker-sentinel-skills.zip"
+        RELEASE_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')
+        SKILLS_ZIP_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}/docker-sentinel-skills.zip"
+        MARKETPLACE_DIR="${HOME}/.docker-sentinel/marketplace"
         SKILLS_TMP=$(mktemp --suffix=.zip)
 
         echo "Downloading skills package..."
@@ -100,31 +99,15 @@ case "$_skills_answer" in
             wget -qO "$SKILLS_TMP" "$SKILLS_ZIP_URL"
         fi
 
-        mkdir -p "$SKILLS_DIR"
-        unzip -qo "$SKILLS_TMP" -d "$SKILLS_DIR"
+        mkdir -p "$MARKETPLACE_DIR"
+        unzip -qo "$SKILLS_TMP" -d "$MARKETPLACE_DIR"
         rm -f "$SKILLS_TMP"
 
-        echo "Registering plugin in installed_plugins.json..."
-        NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-        python3 - <<PYEOF
-import json
-path = "${PLUGINS_JSON}"
-try:
-    with open(path) as f:
-        data = json.load(f)
-except FileNotFoundError:
-    data = {"version": 2, "plugins": {}}
-data.setdefault("plugins", {})["docker-sentinel@local"] = [{
-    "scope": "user",
-    "installPath": "${SKILLS_DIR}",
-    "version": "1.0.0",
-    "installedAt": "${NOW}",
-    "lastUpdated": "${NOW}",
-    "gitCommitSha": ""
-}]
-with open(path, "w") as f:
-    json.dump(data, f, indent=2)
-PYEOF
+        echo "Registering marketplace..."
+        claude plugin marketplace add "$MARKETPLACE_DIR"
+
+        echo "Installing plugin..."
+        claude plugin install docker-sentinel@docker-sentinel
 
         echo "Skills installed. Restart Claude Code to activate the docker-sentinel skill."
         ;;

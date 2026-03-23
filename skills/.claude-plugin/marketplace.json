@@ -1,0 +1,13 @@
+{
+    "name": "docker-sentinel",
+    "owner": {
+        "name": "CrAzyScreamx"
+    },
+    "plugins": [
+        {
+            "name": "docker-sentinel",
+            "source": "./docker-sentinel",
+            "description": "AI-powered Docker image security scanner. Scans images for secrets, malicious binaries, risky scripts, suspicious URLs, persistence mechanisms, and more."
+        }
+    ]
+}
