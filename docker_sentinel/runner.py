@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import docker
@@ -37,7 +38,7 @@ from docker_sentinel.agents.rater import build_rater_agent
 from docker_sentinel.agents.scorer import build_scorer_agent
 from docker_sentinel.tools.url_validator import validate_urls
 from docker_sentinel.config import settings
-from docker_sentinel.models import FinalReport, RaterReport, ScoringReport
+from docker_sentinel.models import FinalReport, RaterReport, RawFindings, ScoringReport
 from docker_sentinel.tools.capability_analyzer import analyze_capabilities
 from docker_sentinel.tools.docker_hub import check_docker_hub_status
 from docker_sentinel.tools.docker_meta import extract_image_metadata
@@ -443,3 +444,138 @@ def run_pipeline(
 
     effective_model = model or settings.docker_sentinel_model
     return asyncio.run(_run_pipeline_async(image_name, effective_model))
+
+
+async def _run_raw_findings_async(
+    image_name: str,
+    output_dir: str,
+) -> RawFindings:
+    """
+    Execute only the Python analysis tools and return raw findings.
+
+    No LLM agents are invoked. Runs the same pull, static analysis,
+    and dynamic analysis steps as the full pipeline but stops before
+    URL validation, scoring, and rating. The result is written to a
+    JSON file in output_dir for downstream consumers (e.g. Claude Code
+    skills) to process with their own model access.
+
+    Step 1 — Pull image into the local daemon cache.
+    Step 2 — Run all 9 static tools in parallel via thread pool.
+    Step 3 — Run all 7 dynamic probes inside an isolated container.
+    """
+    # ------------------------------------------------------------------ #
+    # Step 1 — Pull image                                                  #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][1/3][/cyan] Pulling image...")
+    _pull_image_if_needed(image_name)
+
+    # ------------------------------------------------------------------ #
+    # Step 2 — Static Analysis (9 tools, parallel)                        #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][2/3][/cyan] Running static analysis...")
+
+    for _label in (
+        "secrets (trufflehog)",
+        "layer analysis",
+        "scripts",
+        "urls",
+        "env vars",
+        "manifests",
+        "persistence",
+        "history",
+        "capabilities",
+    ):
+        _console.print(f"[dim]  ► {_label}[/dim]")
+
+    _loop = asyncio.get_running_loop()
+    (
+        trufflehog_result,
+        layer_result,
+        scripts_result,
+        urls_result,
+        env_result,
+        manifests_result,
+        persistence_result,
+        history_result,
+        capabilities_result,
+    ) = await asyncio.gather(
+        _loop.run_in_executor(None, run_trufflehog_scan, image_name),
+        _loop.run_in_executor(None, analyze_image_layers, image_name),
+        _loop.run_in_executor(None, analyze_scripts, image_name),
+        _loop.run_in_executor(None, extract_urls, image_name),
+        _loop.run_in_executor(None, analyze_env_vars, image_name),
+        _loop.run_in_executor(None, analyze_manifests, image_name),
+        _loop.run_in_executor(None, analyze_persistence, image_name),
+        _loop.run_in_executor(None, analyze_history, image_name),
+        _loop.run_in_executor(None, analyze_capabilities, image_name),
+    )
+
+    raw_static = {
+        "trufflehog":   trufflehog_result,
+        "layer":        layer_result,
+        "scripts":      scripts_result,
+        "urls":         urls_result,
+        "env":          env_result,
+        "manifests":    manifests_result,
+        "persistence":  persistence_result,
+        "history":      history_result,
+        "capabilities": capabilities_result,
+    }
+
+    # ------------------------------------------------------------------ #
+    # Step 3 — Dynamic Analysis                                            #
+    # ------------------------------------------------------------------ #
+    _console.print("[cyan][3/3][/cyan] Running dynamic analysis...")
+
+    def _on_probe(probe_name: str) -> None:
+        """Print the probe label in dim gray before each probe fires."""
+        label = probe_name.replace("_", " ")
+        _console.print(f"[dim]  ► {label}[/dim]")
+
+    dynamic_result = run_dynamic_analysis(image_name, on_probe=_on_probe)
+
+    _console.print("[green]Done.[/green]\n")
+
+    findings = RawFindings(
+        schema_version=settings.schema_version,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        image_name=image_name,
+        static=raw_static,
+        dynamic=dynamic_result,
+    )
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    output_path = Path(output_dir) / f"sentinel_raw_{timestamp}.json"
+    output_path.write_text(
+        json.dumps(findings.model_dump(), indent=2),
+        encoding="utf-8",
+    )
+    _console.print(f"[dim]Raw findings written to: {output_path}[/dim]")
+
+    return findings
+
+
+def run_raw_findings(
+    image_name: str,
+    output_dir: str = ".",
+) -> RawFindings:
+    """
+    Run only the Python analysis tools and write raw findings to disk.
+
+    No LLM agents are invoked — does not require DOCKER_SENTINEL_AI_KEY.
+    Used by the --raw-findings CLI flag and Claude Code skills.
+
+    Args:
+        image_name: Docker image reference to inspect.
+        output_dir: Directory to write the sentinel_raw_*.json file.
+
+    Returns:
+        A RawFindings instance containing all static and dynamic tool
+        outputs with no LLM-derived fields.
+    """
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(
+            asyncio.WindowsProactorEventLoopPolicy()
+        )
+
+    return asyncio.run(_run_raw_findings_async(image_name, output_dir))

@@ -98,31 +98,59 @@ from dotenv import load_dotenv
     default=False,
     help="Show score rationale for each finding.",
 )
+@click.option(
+    "--raw-findings",
+    "raw_findings",
+    is_flag=True,
+    default=False,
+    help=(
+        "Run only Python analysis tools (no LLM). "
+        "Does not require DOCKER_SENTINEL_AI_KEY. "
+        "Used by Claude Code skills."
+    ),
+)
 def main(
     image_name: str,
     output_dir: str,
     model: str | None,
     json_only: bool,
     detailed: bool,
+    raw_findings: bool,
 ) -> None:
     """Inspect a Docker IMAGE_NAME for security issues."""
     log_path = _setup_file_logger()
     click.echo(f"[debug] Log file: {log_path}", err=True)
 
     _log.info("=== docker-sentinel started ===")
-    _log.info("image_name=%s  model=%s  output_dir=%s", image_name, model, output_dir)
+    _log.info(
+        "image_name=%s  model=%s  output_dir=%s  raw_findings=%s",
+        image_name, model, output_dir, raw_findings,
+    )
     _log.debug("sys.executable=%s  frozen=%s", sys.executable, getattr(sys, "frozen", False))
     _log.debug("sys.path=%s", sys.path)
 
     load_dotenv()
     _log.debug("load_dotenv() completed")
 
+    if raw_findings:
+        _log.info("--raw-findings mode: skipping LLM pipeline")
+        try:
+            from docker_sentinel.runner import run_raw_findings
+            run_raw_findings(image_name, output_dir=output_dir or ".")
+        except Exception as exc:
+            _log.error("run_raw_findings raised an exception: %s", exc, exc_info=True)
+            click.echo(f"Error: {exc}", err=True)
+            click.echo(f"Full traceback written to: {log_path}", err=True)
+            sys.exit(1)
+        return
+
     if not os.environ.get("DOCKER_SENTINEL_AI_KEY"):
         _log.error("DOCKER_SENTINEL_AI_KEY is not set")
         click.echo(
             "Error: DOCKER_SENTINEL_AI_KEY is not set.\n"
-            "Set it in your environment or in a .env file next to the binary:\n"
-            "  DOCKER_SENTINEL_AI_KEY=sk-ant-...",
+            "Set it to an Anthropic API key (sk-ant-api...) or a "
+            "Claude Pro/Max OAuth token (sk-ant-oat...).\n"
+            "Example: DOCKER_SENTINEL_AI_KEY=sk-ant-api03-...",
             err=True,
         )
         sys.exit(1)

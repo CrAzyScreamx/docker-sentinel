@@ -329,3 +329,27 @@ class FinalReport(BaseModel):
     scored_findings: list[ScoredFinding]
     final_rating: str
     summary: str
+
+
+# ---------------------------------------------------------------------------
+# M15 — raw findings report (no LLM; used by --raw-findings and skills)
+# ---------------------------------------------------------------------------
+
+class RawFindings(BaseModel):
+    """
+    Raw tool output collected without any LLM processing.
+
+    Written to disk by run_raw_findings() when --raw-findings is passed.
+    Consumed by Claude Code skills which perform their own LLM analysis
+    using Claude Code's own model access instead of a user API key.
+
+    Keys in `static`: trufflehog, layer, scripts, urls, env, manifests,
+    persistence, history, capabilities.
+    `dynamic` is the full dict returned by run_dynamic_analysis().
+    """
+
+    schema_version: str
+    generated_at: str
+    image_name: str
+    static: dict
+    dynamic: dict

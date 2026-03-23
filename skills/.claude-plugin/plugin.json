@@ -1,0 +1,6 @@
+{
+  "name": "docker-sentinel",
+  "description": "AI-powered Docker image security scanner. Scans images for secrets, malicious binaries, risky scripts, suspicious URLs, persistence mechanisms, and more.",
+  "version": "1.0.0",
+  "author": { "name": "CrAzyScreamx" }
+}
