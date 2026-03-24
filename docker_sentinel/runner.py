@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+
 import docker
 import docker.errors
 
@@ -466,26 +467,13 @@ async def _run_raw_findings_async(
     # ------------------------------------------------------------------ #
     # Step 1 — Pull image                                                  #
     # ------------------------------------------------------------------ #
-    _console.print("[cyan][1/3][/cyan] Pulling image...")
+    print("[1/3] Pulling image...")
     _pull_image_if_needed(image_name)
 
     # ------------------------------------------------------------------ #
     # Step 2 — Static Analysis (9 tools, parallel)                        #
     # ------------------------------------------------------------------ #
-    _console.print("[cyan][2/3][/cyan] Running static analysis...")
-
-    for _label in (
-        "secrets (trufflehog)",
-        "layer analysis",
-        "scripts",
-        "urls",
-        "env vars",
-        "manifests",
-        "persistence",
-        "history",
-        "capabilities",
-    ):
-        _console.print(f"[dim]  ► {_label}[/dim]")
+    print("[2/3] Running static analysis...")
 
     _loop = asyncio.get_running_loop()
     (
@@ -525,16 +513,10 @@ async def _run_raw_findings_async(
     # ------------------------------------------------------------------ #
     # Step 3 — Dynamic Analysis                                            #
     # ------------------------------------------------------------------ #
-    _console.print("[cyan][3/3][/cyan] Running dynamic analysis...")
+    print("[3/3] Running dynamic analysis...")
+    dynamic_result = run_dynamic_analysis(image_name)
 
-    def _on_probe(probe_name: str) -> None:
-        """Print the probe label in dim gray before each probe fires."""
-        label = probe_name.replace("_", " ")
-        _console.print(f"[dim]  ► {label}[/dim]")
-
-    dynamic_result = run_dynamic_analysis(image_name, on_probe=_on_probe)
-
-    _console.print("[green]Done.[/green]\n")
+    print("Done.")
 
     findings = RawFindings(
         schema_version=settings.schema_version,
@@ -550,7 +532,7 @@ async def _run_raw_findings_async(
         json.dumps(findings.model_dump(), indent=2),
         encoding="utf-8",
     )
-    _console.print(f"[dim]Raw findings written to: {output_path}[/dim]")
+    print(f"Raw findings written to: {output_path}")
 
     return findings
 

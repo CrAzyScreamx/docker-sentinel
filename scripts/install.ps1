@@ -2,11 +2,8 @@
 # Usage:
 #   irm https://raw.githubusercontent.com/CrAzyScreamx/docker-sentinel/main/scripts/install.ps1 | iex
 #   .\install.ps1 -SkillsOnly
-[CmdletBinding()]
-param(
-    [switch]$SkillsOnly
-)
 $ErrorActionPreference = 'Stop'
+$SkillsOnly = $args -contains '--skills-only' -or $args -contains '-SkillsOnly' -or $args -contains '-skills-only'
 
 $Repo      = "CrAzyScreamx/docker-sentinel"
 $AssetName = "docker-sentinel-windows-amd64.zip"
