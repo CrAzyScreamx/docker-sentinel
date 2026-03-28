@@ -22,13 +22,13 @@ The full pipeline runs 7 steps for every image:
 
 | Step | What runs | Description |
 |------|-----------|-------------|
-| **1 — Pull** | Docker daemon | Pulls the image if not already cached, showing per-layer progress. |
-| **2 — Image Profiler** | LLM agent | Collects Docker Hub metadata (official status, publisher, pull count) and daemon metadata (labels, env vars, ports, architecture, size), then structures it into a validated profile. |
-| **3 — Static Analysis** | 9 Python tools (parallel) | Runs all nine static analyzers concurrently with zero LLM overhead. |
-| **4 — URL Validator** | Deterministic pipeline *(conditional)* | Three-stage: (1) filters RFC 1918, loopback, APIPA, and known DNS servers; (2) resolves domains to IPv4 via Google DNS over HTTPS; (3) checks each public IP against Spamhaus ZEN using GNS authoritative nameservers. Skipped if no URLs were extracted. |
-| **5 — Dynamic Analysis** | Direct Python | Starts an isolated container (no network, all capabilities dropped, read-only FS, 256 MB RAM) and runs 7 runtime probes: processes, SUID files, env vars, crontab, listening services, sudoers, active systemd units. |
-| **6 — Scorer** | LLM agent | Assigns a 1–10 risk score to every finding using per-source rules, with a –2 trust discount for official or verified-publisher images. |
-| **7 — Rater** | LLM agent | Maps the highest score to a rating band and writes a one-sentence plain-English summary. |
+| **1 - Pull** | Docker daemon | Pulls the image if not already cached, showing per-layer progress. |
+| **2 - Image Profiler** | LLM agent | Collects Docker Hub metadata (official status, publisher, pull count) and daemon metadata (labels, env vars, ports, architecture, size), then structures it into a validated profile. |
+| **3 - Static Analysis** | 9 Python tools (parallel) | Runs all nine static analyzers concurrently with zero LLM overhead. |
+| **4 - URL Validator** | Deterministic pipeline *(conditional)* | Three-stage: (1) filters RFC 1918, loopback, APIPA, and known DNS servers; (2) resolves domains to IPv4 via Google DNS over HTTPS; (3) checks each public IP against Spamhaus ZEN using GNS authoritative nameservers. Skipped if no URLs were extracted. |
+| **5 - Dynamic Analysis** | Direct Python | Starts an isolated container (no network, all capabilities dropped, read-only FS, 256 MB RAM) and runs 7 runtime probes: processes, SUID files, env vars, crontab, listening services, sudoers, active systemd units. |
+| **6 - Scorer** | LLM agent | Assigns a 1–10 risk score to every finding using per-source rules, with a –2 trust discount for official or verified-publisher images. |
+| **7 - Rater** | LLM agent | Maps the highest score to a rating band and writes a one-sentence plain-English summary. |
 
 ### Static analysis tools
 
