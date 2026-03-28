@@ -1,5 +1,6 @@
 ---
 name: docker-sentinel
+argument-hint: "<image:tag>"
 description: >
   Scan Docker images for security issues — secrets, malicious binaries,
   dangerous scripts, risky URLs, persistence mechanisms, capability abuse,
@@ -7,8 +8,6 @@ description: >
   security of a Docker image. Triggers on phrases like "scan nginx:latest",
   "check this image for vulnerabilities", "is redis:7 safe to use",
   "audit my Docker image".
-triggers:
-  - /docker-sentinel
 metadata:
   priority: 50
   promptSignals:
