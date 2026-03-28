@@ -11,10 +11,13 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from docker_sentinel.tools._toon_encoder import encode as toon_encode
 
 
 import docker
@@ -38,7 +41,16 @@ from docker_sentinel.agents.image_profiler import build_image_profiler_agent
 from docker_sentinel.agents.rater import build_rater_agent
 from docker_sentinel.agents.scorer import build_scorer_agent
 from docker_sentinel.tools.url_validator import validate_urls
-from docker_sentinel.config import settings
+from docker_sentinel.config import (
+    settings,
+    ANOMALY_STRING_MAX_CHARS,
+    COMMAND_SNIPPET_MAX_CHARS,
+    EVIDENCE_MAX_CHARS,
+    LINE_CONTENT_MAX_CHARS,
+    MAX_ANOMALIES_PER_PROBE,
+    MAX_FINDINGS_PER_TOOL,
+    MAX_SCRIPT_FINDINGS,
+)
 from docker_sentinel.models import FinalReport, RaterReport, RawFindings, ScoringReport
 from docker_sentinel.tools.capability_analyzer import analyze_capabilities
 from docker_sentinel.tools.docker_hub import check_docker_hub_status
@@ -130,6 +142,84 @@ _STATIC_TOOL_FINDINGS_KEYS: dict[str, str] = {
     "history":      "history_findings",
     "capabilities": "capability_findings",
 }
+
+
+def _trim_for_scorer(filtered: dict) -> dict:
+    """
+    Trim verbose string fields in filtered findings to reduce scorer tokens.
+
+    Caps the number of findings per tool and truncates long string fields.
+    The full untruncated data remains in the 'static' and 'dynamic' keys of
+    RawFindings — this trimmed copy is only used as scorer input.
+    """
+    trimmed: dict = {}
+
+    for tool_key, findings in filtered.items():
+        if tool_key == "scripts":
+            capped = findings[:MAX_SCRIPT_FINDINGS]
+            trimmed[tool_key] = [
+                {
+                    **finding,
+                    "matches": [
+                        {
+                            **match,
+                            "line_content": (
+                                match["line_content"][:LINE_CONTENT_MAX_CHARS]
+                                if len(match.get("line_content", ""))
+                                > LINE_CONTENT_MAX_CHARS
+                                else match.get("line_content", "")
+                            ),
+                        }
+                        for match in finding.get("matches", [])
+                    ],
+                }
+                for finding in capped
+            ]
+
+        elif tool_key == "dynamic":
+            trimmed[tool_key] = [
+                {
+                    **probe,
+                    "anomalies": [
+                        anomaly[:ANOMALY_STRING_MAX_CHARS]
+                        for anomaly in probe.get(
+                            "anomalies", []
+                        )[:MAX_ANOMALIES_PER_PROBE]
+                    ],
+                }
+                for probe in findings
+            ]
+
+        elif tool_key == "history":
+            trimmed[tool_key] = [
+                {
+                    **finding,
+                    "command_snippet": finding.get(
+                        "command_snippet", ""
+                    )[:COMMAND_SNIPPET_MAX_CHARS],
+                }
+                for finding in findings[:MAX_FINDINGS_PER_TOOL]
+            ]
+
+        elif tool_key == "persistence":
+            trimmed[tool_key] = [
+                {
+                    **finding,
+                    "evidence": finding.get(
+                        "evidence", ""
+                    )[:EVIDENCE_MAX_CHARS],
+                }
+                for finding in findings[:MAX_FINDINGS_PER_TOOL]
+            ]
+
+        else:
+            trimmed[tool_key] = (
+                findings[:MAX_FINDINGS_PER_TOOL]
+                if isinstance(findings, list)
+                else findings
+            )
+
+    return trimmed
 
 
 async def _run_agent(
@@ -447,6 +537,36 @@ def run_pipeline(
     return asyncio.run(_run_pipeline_async(image_name, effective_model))
 
 
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^a-zA-Z0-9._-]")
+
+
+def _parse_image_slug(image_name: str) -> tuple[str, str]:
+    """
+    Return a filesystem-safe (name, tag) pair from a Docker image reference.
+
+    Strips any registry/org prefix (everything before the last '/'), then
+    splits on ':' to separate the repository name from its tag. Characters
+    outside [a-zA-Z0-9._-] are replaced with '_' so the result is safe
+    to embed in a filename on any OS.
+
+    Examples:
+        'nginx:latest'              → ('nginx', 'latest')
+        'nginx'                     → ('nginx', 'latest')
+        'ghcr.io/owner/image:v1.0'  → ('image', 'v1.0')
+        'python:3.12-slim'          → ('python', '3.12-slim')
+    """
+    # Keep only the last path segment so registry/org prefixes are dropped.
+    base = image_name.rsplit("/", 1)[-1]
+    if ":" in base:
+        name, tag = base.split(":", 1)
+    else:
+        name, tag = base, "latest"
+    return (
+        _UNSAFE_FILENAME_CHARS.sub("_", name),
+        _UNSAFE_FILENAME_CHARS.sub("_", tag),
+    )
+
+
 async def _run_raw_findings_async(
     image_name: str,
     output_dir: str,
@@ -471,12 +591,15 @@ async def _run_raw_findings_async(
     _pull_image_if_needed(image_name)
 
     # ------------------------------------------------------------------ #
-    # Step 2 — Static Analysis (9 tools, parallel)                        #
+    # Step 2 — Hub status, image metadata, and all 9 static tools run    #
+    # concurrently via the thread pool.                                   #
     # ------------------------------------------------------------------ #
     print("[2/3] Running static analysis...")
 
     _loop = asyncio.get_running_loop()
     (
+        hub_status_result,
+        image_meta_result,
         trufflehog_result,
         layer_result,
         scripts_result,
@@ -487,6 +610,8 @@ async def _run_raw_findings_async(
         history_result,
         capabilities_result,
     ) = await asyncio.gather(
+        _loop.run_in_executor(None, check_docker_hub_status, image_name),
+        _loop.run_in_executor(None, extract_image_metadata, image_name),
         _loop.run_in_executor(None, run_trufflehog_scan, image_name),
         _loop.run_in_executor(None, analyze_image_layers, image_name),
         _loop.run_in_executor(None, analyze_scripts, image_name),
@@ -511,28 +636,81 @@ async def _run_raw_findings_async(
     }
 
     # ------------------------------------------------------------------ #
-    # Step 3 — Dynamic Analysis                                            #
+    # Step 3 — URL Validator (deterministic; no LLM)                       #
     # ------------------------------------------------------------------ #
-    print("[3/3] Running dynamic analysis...")
+    print("[3/4] Validating URLs...")
+    flagged_urls = raw_static.get("urls", {}).get("url_findings", [])
+    if flagged_urls:
+        url_verdicts_result = await _loop.run_in_executor(
+            None, validate_urls, flagged_urls[:50]
+        )
+    else:
+        print("  No flagged URLs — skipping.")
+        url_verdicts_result = []
+
+    # ------------------------------------------------------------------ #
+    # Step 4 — Dynamic Analysis                                            #
+    # ------------------------------------------------------------------ #
+    print("[4/4] Running dynamic analysis...")
     dynamic_result = run_dynamic_analysis(image_name)
 
     print("Done.")
+
+    # Build the pre-filtered and token-trimmed findings dict.
+    # URL validator has already run, so validated verdicts are used here.
+    # _trim_for_scorer removes verbose fields (line_content, long anomaly
+    # strings) so the scorer receives only what it needs for scoring.
+    filtered = _trim_for_scorer(
+        _filter_empty_findings(raw_static, dynamic_result, url_verdicts_result)
+    )
 
     findings = RawFindings(
         schema_version=settings.schema_version,
         generated_at=datetime.now(timezone.utc).isoformat(),
         image_name=image_name,
+        hub_status=hub_status_result,
+        image_meta=image_meta_result,
         static=raw_static,
+        url_verdicts=url_verdicts_result,
         dynamic=dynamic_result,
+        filtered=filtered,
     )
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    output_path = Path(output_dir) / f"sentinel_raw_{timestamp}.json"
-    output_path.write_text(
-        json.dumps(findings.model_dump(), indent=2),
+    # Write 3 separate TOON-encoded .txt files — one per data domain.
+    # Each file is self-contained so Claude Code skill subagents can
+    # load only the slice they need (e.g. the profiler only needs metadata).
+    image_slug, version_slug = _parse_image_slug(image_name)
+    output_base = Path(output_dir)
+
+    metadata_path     = output_base / f"metadata-{image_slug}-{version_slug}.txt"
+    static_path       = output_base / f"static-{image_slug}-{version_slug}.txt"
+    url_verdicts_path = output_base / f"url-verdicts-{image_slug}-{version_slug}.txt"
+    dynamic_path      = output_base / f"dynamic-{image_slug}-{version_slug}.txt"
+
+    metadata_path.write_text(
+        toon_encode({
+            "hub_status": hub_status_result,
+            "image_meta": image_meta_result,
+        }),
         encoding="utf-8",
     )
-    print(f"Raw findings written to: {output_path}")
+    static_path.write_text(
+        toon_encode(raw_static),
+        encoding="utf-8",
+    )
+    url_verdicts_path.write_text(
+        toon_encode({"url_verdicts": url_verdicts_result}),
+        encoding="utf-8",
+    )
+    dynamic_path.write_text(
+        toon_encode(dynamic_result),
+        encoding="utf-8",
+    )
+
+    print(f"Metadata written to      : {metadata_path}")
+    print(f"Static results written to: {static_path}")
+    print(f"URL verdicts written to  : {url_verdicts_path}")
+    print(f"Dynamic results written to: {dynamic_path}")
 
     return findings
 

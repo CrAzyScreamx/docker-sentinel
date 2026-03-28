@@ -351,5 +351,9 @@ class RawFindings(BaseModel):
     schema_version: str
     generated_at: str
     image_name: str
+    hub_status: dict        # result of check_docker_hub_status()
+    image_meta: dict        # result of extract_image_metadata()
     static: dict
+    url_verdicts: list      # result of validate_urls() — "Safe" / "Not Safe" per URL
     dynamic: dict
+    filtered: dict          # pre-filtered findings ready for the scorer (non-empty lists only)

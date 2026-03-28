@@ -74,3 +74,31 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# ---------------------------------------------------------------------------
+# Scorer token-trimming limits
+# Applied by _trim_for_scorer() in runner.py before storing filtered findings.
+# These reduce LLM input tokens without losing information needed for scoring.
+# ---------------------------------------------------------------------------
+
+# Maximum findings kept per static tool (full data remains in static.*).
+MAX_FINDINGS_PER_TOOL: int = 20
+
+# Script findings are verbose (each carries multiple matches with line content).
+MAX_SCRIPT_FINDINGS: int = 10
+
+# Characters kept from each script match's line_content.
+LINE_CONTENT_MAX_CHARS: int = 100
+
+# Characters kept from each dynamic anomaly string.
+ANOMALY_STRING_MAX_CHARS: int = 150
+
+# Dynamic probes can produce many anomalies; cap to avoid runaway output.
+MAX_ANOMALIES_PER_PROBE: int = 5
+
+# Characters kept from history command_snippet (tool already caps at 200).
+COMMAND_SNIPPET_MAX_CHARS: int = 120
+
+# Characters kept from persistence evidence strings.
+EVIDENCE_MAX_CHARS: int = 150
