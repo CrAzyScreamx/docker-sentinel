@@ -7,6 +7,8 @@ description: >
   security of a Docker image. Triggers on phrases like "scan nginx:latest",
   "check this image for vulnerabilities", "is redis:7 safe to use",
   "audit my Docker image".
+triggers:
+  - /docker-sentinel
 metadata:
   priority: 50
   promptSignals:
